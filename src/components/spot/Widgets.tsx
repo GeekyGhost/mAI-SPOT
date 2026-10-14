@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Pencil, Ticket, Sliders, Headphones, Radio, Sparkles, Clapperboard, Image as ImageIcon, Gamepad2, BookOpen, Play, Shuffle,
+  Pencil, Ticket, Sliders, Headphones, Radio, Sparkles, Clapperboard, Image as ImageIcon, Gamepad2, BookOpen, Play, Pause, Shuffle,
   Users, Newspaper, Plus, Music2, Film, Trophy, Clock as ClockIcon, StickyNote, ChevronRight
 } from 'lucide-react';
 import type { StationProfile, Track, Video, Game, Book, LiveBroadcast, LayoutConfig } from '@/lib/types';
@@ -241,6 +241,13 @@ export const NoteCard: React.FC<{ note?: LayoutConfig['note']; onSave?: (text: s
 
 export const MusicCard: React.FC<{ layout: LayoutConfig; tracks: Track[]; live: LiveBroadcast | null; go: (m: GoTo) => void; onAdd: () => void }> = ({ layout, tracks, live, go, onAdd }) => {
   const audio = useAudio();
+
+  useEffect(() => {
+    if (!audio.current && audio.queue.length === 0 && tracks.length > 0 && !live?.live) {
+      audio.cueQueue(tracks as NowTrack[], 0, 'My library');
+    }
+  }, [audio.current, audio.queue.length, tracks, live?.live, audio.cueQueue]);
+
   return (
     <Card
       title={live?.live ? `On air: ${live.station?.name}` : 'My radio'}
@@ -253,9 +260,22 @@ export const MusicCard: React.FC<{ layout: LayoutConfig; tracks: Track[]; live: 
             </button>
           )}
           {tracks.length > 0 && (
-            <button onClick={() => audio.playQueue([...tracks].sort(() => Math.random() - 0.5) as NowTrack[], 0, 'Shuffle all')} className="px-2.5 py-1 rounded-lg bg-white/10 text-white text-[11px] font-bold flex items-center gap-1 hover:bg-white/20">
-              <Shuffle className="w-3 h-3" /> Shuffle
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  if (audio.isPlaying) audio.pause();
+                  else if (audio.current) audio.toggle();
+                  else audio.playQueue(tracks as NowTrack[], 0, 'All songs');
+                }}
+                className="px-2.5 py-1 rounded-lg bg-[var(--spot-accent)] text-black text-[11px] font-bold flex items-center gap-1 hover:brightness-110"
+              >
+                {audio.isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                {audio.isPlaying ? 'Pause' : 'Play'}
+              </button>
+              <button onClick={() => audio.playQueue([...tracks].sort(() => Math.random() - 0.5) as NowTrack[], 0, 'Shuffle all')} className="px-2.5 py-1 rounded-lg bg-white/10 text-white text-[11px] font-bold flex items-center gap-1 hover:bg-white/20">
+                <Shuffle className="w-3 h-3" /> Shuffle
+              </button>
+            </>
           )}
           <More onClick={() => go('radio')} color="#39ff88">Radio</More>
         </div>

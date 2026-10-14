@@ -57,6 +57,7 @@ interface Engine {
   analyser: AnalyserNode | null;
   eq: EqState;
   // actions
+  cueQueue: (tracks: NowTrack[], startIndex?: number, label?: string) => void;
   playQueue: (tracks: NowTrack[], startIndex?: number, label?: string) => void;
   playTrack: (track: NowTrack, context?: NowTrack[], label?: string) => void;
   toggle: () => void;
@@ -194,7 +195,7 @@ export function AudioEngineProvider({ children, listenerId, reportNowPlaying }: 
     (track: NowTrack | null, offset = 0, autoplay = true) => {
       const el = audioRef.current;
       if (!el || !track) return;
-      ensureGraph();
+      if (autoplay || graph.current) ensureGraph();
       pendingSeek.current = offset > 0.5 ? offset : null;
       if (el.getAttribute('src') !== track.filePath) {
         el.src = track.filePath;
@@ -212,6 +213,25 @@ export function AudioEngineProvider({ children, listenerId, reportNowPlaying }: 
   );
 
   // ─── on-demand controls ───
+  const cueQueue = useCallback(
+    (tracks: NowTrack[], startIndex = 0, lbl = '') => {
+      if (!tracks.length) return;
+      if (mode === 'live' || queue.length > 0 || current) return;
+      setMode('ondemand');
+      setLive(null);
+      let start = startIndex;
+      if (start < 0 || start >= tracks.length) start = 0;
+      if (shuffle && startIndex === 0) {
+        start = Math.floor(Math.random() * tracks.length);
+      }
+      setQueue(tracks);
+      setIndex(start);
+      setLabel(lbl);
+      load(tracks[start], 0, false);
+    },
+    [mode, queue.length, current, shuffle, load]
+  );
+
   const playQueue = useCallback(
     (tracks: NowTrack[], startIndex = 0, lbl = '') => {
       if (!tracks.length) return;
@@ -471,6 +491,7 @@ export function AudioEngineProvider({ children, listenerId, reportNowPlaying }: 
       live,
       analyser,
       eq,
+      cueQueue,
       playQueue,
       playTrack,
       toggle,
@@ -527,7 +548,7 @@ export function AudioEngineProvider({ children, listenerId, reportNowPlaying }: 
     }),
     [
       queue, index, current, label, isPlaying, isBuffering, currentTime, duration, volume, muted, shuffle,
-      repeat, mode, live, analyser, eq, playQueue, playTrack, toggle, pause, next, prev, seek, tuneInLive,
+      repeat, mode, live, analyser, eq, cueQueue, playQueue, playTrack, toggle, pause, next, prev, seek, tuneInLive,
       leaveLive, load, liveUrlState, syncLive
     ]
   );

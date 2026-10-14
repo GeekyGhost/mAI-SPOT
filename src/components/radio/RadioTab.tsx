@@ -97,6 +97,12 @@ export const RadioTab: React.FC<Props> = ({ tracks, playlists, stations, live: i
 
   const playable = useMemo(() => tracks.filter(t => t.duration > 0 || !t.probed), [tracks]);
 
+  useEffect(() => {
+    if (!audio.current && audio.queue.length === 0 && playable.length > 0 && !live?.live) {
+      audio.cueQueue(playable as NowTrack[], 0, 'My library');
+    }
+  }, [audio.current, audio.queue.length, playable, live?.live, audio.cueQueue]);
+
   const genres = useMemo(() => group(playable, t => t.genre || 'Unsorted'), [playable]);
   const artists = useMemo(() => group(playable, t => t.artist || 'Unknown Artist'), [playable]);
   const albums = useMemo(() => group(playable.filter(t => t.album), t => t.album!), [playable]);
