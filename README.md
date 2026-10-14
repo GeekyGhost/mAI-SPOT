@@ -1,5 +1,7 @@
 # 📻 mAI Spot
 
+> **[📥 Download Standalone Release (.zip)](https://github.com/GeekyGhost/mAI-SPOT/releases/latest)** — Zero install required; runs on your PC with portable runtime included.
+
 Your own personal broadcast station and social page, in the spirit of MySpace and the early-2000s web. It runs on your own PC and everything stays in this folder.
 
 - **Radio**: your music by genre, artist, album and playlist. Put any station **on air** and it streams like a real radio station.
