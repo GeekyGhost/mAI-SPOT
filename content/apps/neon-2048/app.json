@@ -1,0 +1,8 @@
+{
+ "title": "Neon 2048",
+ "kind": "game",
+ "genre": "Puzzle",
+ "description": "Slide and merge matching tiles to reach 2048, then keep going. With undo.",
+ "controls": "Arrows / WASD / swipe • U undo",
+ "thumbnail": "cover.svg"
+}

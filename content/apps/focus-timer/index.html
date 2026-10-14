@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus Timer</title>
+<style>
+  html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 30%,#13222a,#030608 70%);color:#e6fdff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center}
+  .wrap{text-align:center}
+  .modes{display:flex;gap:8px;justify-content:center;margin-bottom:24px}
+  button{background:#121e24;color:#a1efff;border:1px solid #1a323c;border-radius:999px;padding:8px 16px;font:600 14px system-ui;cursor:pointer}
+  button.on{background:#2ee8f7;color:#000;border-color:#2ee8f7}
+  svg{width:min(70vw,320px);height:min(70vw,320px)}
+  #t{font:800 64px ui-monospace,Consolas,monospace;fill:#e6fdff}
+  #lbl{fill:#649fae;font:600 14px system-ui;letter-spacing:.2em}
+  .ctl{display:flex;gap:10px;justify-content:center;margin-top:20px}
+  #go{background:#f9993c;color:#000;border:0;font-size:16px;padding:10px 28px}
+  #count{color:#649fae;margin-top:14px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="modes"><button data-m="0" class="on">Focus 25</button><button data-m="1">Short 5</button><button data-m="2">Long 15</button></div>
+  <svg viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="88" fill="none" stroke="#14262e" stroke-width="10"/>
+    <circle id="ring" cx="100" cy="100" r="88" fill="none" stroke="#2ee8f7" stroke-width="10" stroke-linecap="round" transform="rotate(-90 100 100)" stroke-dasharray="553" stroke-dashoffset="0"/>
+    <text id="t" x="100" y="112" text-anchor="middle">25:00</text>
+    <text id="lbl" x="100" y="140" text-anchor="middle">FOCUS</text>
+  </svg>
+  <div class="ctl"><button id="go">Start</button><button id="reset">Reset</button></div>
+  <div id="count">Sessions completed: 0</div>
+</div>
+<script>
+const M=[{n:'FOCUS',s:1500,c:'#2ee8f7'},{n:'SHORT BREAK',s:300,c:'#39ff88'},{n:'LONG BREAK',s:900,c:'#ff2e6e'}];
+let mode=0,left=M[0].s,run=false,timer=null,done=0,endAt=0;
+const $=id=>document.getElementById(id);
+function draw(){const m=Math.floor(left/60),s=left%60;$('t').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');$('ring').style.strokeDashoffset=553*(1-left/M[mode].s);$('ring').style.stroke=M[mode].c;$('lbl').textContent=M[mode].n;$('go').textContent=run?'Pause':'Start';}
+function chime(){try{const a=new AudioContext();[523,659,784].forEach((f,i)=>{const o=a.createOscillator(),g=a.createGain();o.frequency.value=f;g.gain.setValueAtTime(0.0001,a.currentTime+i*.18);g.gain.exponentialRampToValueAtTime(.2,a.currentTime+i*.18+.02);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+i*.18+.6);o.connect(g).connect(a.destination);o.start(a.currentTime+i*.18);o.stop(a.currentTime+i*.18+.7);});}catch(e){}}
+function tick(){left=Math.max(0,Math.round((endAt-Date.now())/1000));if(left===0){clearInterval(timer);run=false;chime();if(mode===0){done++;$('count').textContent='Sessions completed: '+done;}setMode(mode===0?(done%4===0?2:1):0);}draw();}
+function start(){if(run){run=false;clearInterval(timer);}else{run=true;endAt=Date.now()+left*1000;timer=setInterval(tick,250);}draw();}
+function setMode(i){mode=i;run=false;clearInterval(timer);left=M[i].s;document.querySelectorAll('.modes button').forEach((b,k)=>b.classList.toggle('on',k===i));draw();}
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>setMode(+b.dataset.m));
+$('go').onclick=start;$('reset').onclick=()=>setMode(mode);
+addEventListener('keydown',e=>{if(e.key==='Escape'){parent.postMessage({type:'ARCADE_ESC'},'*');return;}if(e.code==='Space'){e.preventDefault();start();}if(e.key==='r')setMode(mode);if('123'.includes(e.key))setMode(+e.key-1);});
+draw();
+</script>
+</body>
+</html>

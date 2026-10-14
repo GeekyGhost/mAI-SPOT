@@ -1,0 +1,86 @@
+{
+  "surface": {
+    "black": {
+      "hex": "#030608",
+      "use": "App background, the deepest layer"
+    },
+    "steel": {
+      "hex": "#080f12",
+      "use": "Panel headers, toolbars"
+    },
+    "panel": {
+      "hex": "#0d161a",
+      "use": "Panel bodies"
+    },
+    "panel-light": {
+      "hex": "#121e24",
+      "use": "Cards, inputs, raised surfaces"
+    },
+    "border-glow": {
+      "hex": "#1a323c",
+      "use": "Standard borders"
+    },
+    "border-dim": {
+      "hex": "#14262e",
+      "use": "Internal dividers"
+    }
+  },
+  "text": {
+    "primary": {
+      "hex": "#a1efff",
+      "use": "Body text"
+    },
+    "bright": {
+      "hex": "#e6fdff",
+      "use": "Headings, emphasis"
+    },
+    "muted": {
+      "hex": "#649fae",
+      "use": "Secondary text, metadata"
+    }
+  },
+  "brand": {
+    "df-orange": {
+      "hex": "#f9993c",
+      "use": "Logo body. Flat, never gradient."
+    },
+    "df-magenta": {
+      "hex": "#ff2e6e",
+      "use": "Logo wedge"
+    },
+    "df-cyan": {
+      "hex": "#2ee8f7",
+      "use": "Logo base bar"
+    },
+    "df-ink": {
+      "hex": "#111111",
+      "use": "The DF letterforms"
+    }
+  },
+  "accent": {
+    "blue": {
+      "hex": "#00f0ff",
+      "use": "Structure, selection, primary action"
+    },
+    "pink": {
+      "hex": "#ff3385",
+      "use": "Motion, transitions, video"
+    },
+    "gold": {
+      "hex": "#ffcf33",
+      "use": "Selection, audio, warnings"
+    },
+    "orange": {
+      "hex": "#ff8e2b",
+      "use": "Ember mid-tone, in-progress"
+    },
+    "green": {
+      "hex": "#39ff88",
+      "use": "Health, success, ready"
+    },
+    "red": {
+      "hex": "#ff3c3c",
+      "use": "Errors, destructive actions"
+    }
+  }
+}

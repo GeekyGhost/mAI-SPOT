@@ -1,0 +1,103 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Star Invaders</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;user-select:none;touch-action:none}canvas{display:block;margin:auto}</style>
+</head><body><canvas id="c"></canvas>
+<script src="arcade-kit.js"></script>
+<script>
+const VW = 800, VH = 640, cv = document.getElementById('c'), g = cv.getContext('2d');
+let sc = 1;
+function fit() { sc = Math.min(innerWidth / VW, innerHeight / VH); cv.width = VW * sc; cv.height = VH * sc; cv.style.marginTop = (innerHeight - cv.height) / 2 + 'px'; }
+addEventListener('resize', fit); fit();
+// 11x8 pixel sprites, two frames each
+const SPR = [
+  ['00100000100', '00010001000', '00111111100', '01101110110', '11111111111', '10111111101', '10100000101', '00011011000'],
+  ['00100000100', '10010001001', '10111111101', '11101110111', '11111111111', '01111111110', '00100000100', '01000000010'],
+  ['00001110000', '01111111110', '11111111111', '11100100111', '11111111111', '00011011000', '00110001100', '11000000011'],
+  ['00001110000', '01111111110', '11111111111', '11100100111', '11111111111', '00111011100', '01100000110', '00110001100'],
+  ['00011111000', '00111111100', '01101110110', '11111111111', '11111111111', '00100000100', '01011111010', '10100000101'],
+  ['00011111000', '00111111100', '01101110110', '11111111111', '11111111111', '01011111010', '10000000001', '01000000010']
+];
+const ROWCOL = ['#ff2e6e', '#f9993c', '#ffcf33', '#39ff88', '#2ee8f7'];
+let state = 'title', ship, shots, bombs, aliens, shields, ufo, score, lives, wave, dir, stepT, frame, parts, best = 0, keys = {}, cool = 0, touchX = null;
+Arcade.onBest(b => best = b);
+function px(sprite, x, y, s, col) { g.fillStyle = col; sprite.forEach((row, j) => [...row].forEach((c, i) => c === '1' && g.fillRect(x + i * s, y + j * s, s, s))); }
+function reset() { score = 0; lives = 3; wave = 1; ship = { x: VW / 2 }; buildShields(); startWave(); state = 'play'; }
+function startWave() {
+  aliens = []; shots = []; bombs = []; parts = []; ufo = null; dir = 1; stepT = 0; frame = 0;
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 11; c++) aliens.push({ x: 90 + c * 52, y: 90 + r * 40 + Math.min(4, wave - 1) * 14, r, alive: true });
+}
+function buildShields() {
+  shields = [];
+  for (let s = 0; s < 4; s++) for (let y = 0; y < 6; y++) for (let x = 0; x < 10; x++) {
+    if (y > 3 && x > 2 && x < 7) continue; if (y === 0 && (x === 0 || x === 9)) continue;
+    shields.push({ x: 110 + s * 170 + x * 7, y: 500 + y * 7, hp: 2 });
+  }
+}
+function boom(x, y, col, n = 18) { for (let i = 0; i < n; i++) parts.push({ x, y, vx: (Math.random() - .5) * 6, vy: (Math.random() - .5) * 6, l: 30, col }); }
+function update() {
+  if (keys.ArrowLeft || keys.a) ship.x -= 6; if (keys.ArrowRight || keys.d) ship.x += 6;
+  if (touchX !== null) ship.x += Math.max(-6, Math.min(6, touchX - ship.x));
+  ship.x = Math.max(30, Math.min(VW - 30, ship.x)); cool--;
+  if ((keys[' '] || keys.ArrowUp || touchX !== null) && cool <= 0 && shots.length < 2) { shots.push({ x: ship.x, y: VH - 70 }); cool = 16; Arcade.sfx('shoot'); }
+  const alive = aliens.filter(a => a.alive);
+  const interval = Math.max(3, 44 - (55 - alive.length) * .75 - wave * 2);
+  if (++stepT >= interval) {
+    stepT = 0; frame ^= 1; Arcade.sfx('blip');
+    const edge = alive.some(a => (dir > 0 && a.x > VW - 70) || (dir < 0 && a.x < 30));
+    if (edge) { dir = -dir; alive.forEach(a => a.y += 18); } else alive.forEach(a => a.x += 10 * dir);
+  }
+  if (Math.random() < .012 + wave * .004 && alive.length) {
+    const cols = {}; alive.forEach(a => { const k = Math.round(a.x / 52); if (!cols[k] || cols[k].y < a.y) cols[k] = a; });
+    const shooters = Object.values(cols), a = shooters[Math.random() * shooters.length | 0];
+    bombs.push({ x: a.x + 16, y: a.y + 24, wig: Math.random() * 6 });
+  }
+  if (!ufo && Math.random() < .002) ufo = { x: -40, v: 2.2 };
+  if (ufo) { ufo.x += ufo.v; if (ufo.x > VW + 40) ufo = null; }
+  shots.forEach(s => s.y -= 11); bombs.forEach(b => b.y += 4 + wave * .3);
+  for (const s of shots) {
+    for (const a of alive) if (s.y > a.y && s.y < a.y + 24 && s.x > a.x && s.x < a.x + 33) { a.alive = false; s.dead = true; score += (5 - a.r) * 10; boom(a.x + 16, a.y + 12, ROWCOL[a.r]); Arcade.sfx('hit'); break; }
+    if (ufo && Math.abs(s.x - ufo.x) < 26 && s.y < 70 && s.y > 40) { score += 100 + (Math.random() * 3 | 0) * 50; boom(ufo.x, 55, '#ff2e6e', 30); ufo = null; s.dead = true; Arcade.sfx('win'); }
+    for (const b of shields) if (b.hp > 0 && s.x > b.x - 2 && s.x < b.x + 9 && s.y > b.y && s.y < b.y + 7) { b.hp--; s.dead = true; break; }
+  }
+  for (const bm of bombs) {
+    for (const b of shields) if (b.hp > 0 && bm.x > b.x - 3 && bm.x < b.x + 10 && bm.y > b.y && bm.y < b.y + 7) { b.hp--; bm.dead = true; break; }
+    if (!bm.dead && bm.y > VH - 80 && bm.y < VH - 50 && Math.abs(bm.x - ship.x) < 24) { bm.dead = true; lives--; boom(ship.x, VH - 65, '#2ee8f7', 40); Arcade.sfx('boom'); if (lives <= 0) return gameOver(); }
+  }
+  for (const a of alive) { if (a.y > 470) shields.forEach(b => { if (Math.abs(b.x - a.x - 16) < 22 && Math.abs(b.y - a.y - 12) < 16) b.hp = 0; }); if (a.y > VH - 100) return gameOver(); }
+  shots = shots.filter(s => !s.dead && s.y > 30); bombs = bombs.filter(b => !b.dead && b.y < VH);
+  if (!aliens.some(a => a.alive)) { wave++; score += 250; Arcade.sfx('win'); startWave(); }
+}
+function gameOver() { state = 'over'; Arcade.sfx('lose'); Arcade.score(score); }
+function draw() {
+  g.setTransform(sc, 0, 0, sc, 0, 0); g.fillStyle = '#03040a'; g.fillRect(0, 0, VW, VH);
+  for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(255,255,255,${(i * 37 % 10) / 20})`; g.fillRect((i * 131) % VW, (i * 71 + performance.now() / 50 * (i % 3 + 1)) % VH, 2, 2); }
+  g.font = '700 18px ui-monospace,monospace'; g.fillStyle = '#fff'; g.textAlign = 'left'; g.fillText(`SCORE ${score ?? 0}`, 20, 28);
+  g.textAlign = 'center'; g.fillText(`WAVE ${wave ?? 1}`, VW / 2, 28); g.textAlign = 'right'; g.fillText(`HI ${Math.max(best, score || 0)}`, VW - 20, 28);
+  if (aliens) aliens.forEach(a => a.alive && (g.shadowBlur = 10, g.shadowColor = ROWCOL[a.r], px(SPR[Math.floor(a.r / 2) * 2 + frame] || SPR[frame], a.x, a.y, 3, ROWCOL[a.r])));
+  g.shadowBlur = 0;
+  if (shields) shields.forEach(b => { if (b.hp > 0) { g.fillStyle = b.hp > 1 ? '#39ff88' : '#1d8a4d'; g.fillRect(b.x, b.y, 7, 7); } });
+  if (ufo) { g.shadowBlur = 16; g.shadowColor = '#ff2e6e'; g.fillStyle = '#ff2e6e'; g.beginPath(); g.ellipse(ufo.x, 55, 26, 9, 0, 0, 7); g.fill(); g.fillStyle = '#ffd'; g.beginPath(); g.ellipse(ufo.x, 48, 10, 7, 0, Math.PI, 0); g.fill(); g.shadowBlur = 0; }
+  if (ship && state !== 'over') { g.shadowBlur = 16; g.shadowColor = '#2ee8f7'; g.fillStyle = '#2ee8f7'; g.beginPath(); g.moveTo(ship.x, VH - 82); g.lineTo(ship.x + 24, VH - 52); g.lineTo(ship.x - 24, VH - 52); g.fill(); g.fillRect(ship.x - 28, VH - 54, 56, 6); g.shadowBlur = 0; }
+  if (shots) { g.fillStyle = '#fff'; shots.forEach(s => g.fillRect(s.x - 1.5, s.y, 3, 14)); }
+  if (bombs) { g.strokeStyle = '#ffcf33'; g.lineWidth = 3; bombs.forEach(b => { g.beginPath(); for (let i = 0; i < 4; i++) g.lineTo(b.x + (i % 2 ? 4 : -4), b.y + i * 4); g.stroke(); }); }
+  if (parts) parts = parts.filter(p => { p.x += p.vx; p.y += p.vy; g.globalAlpha = p.l / 30; g.fillStyle = p.col; g.fillRect(p.x, p.y, 3, 3); g.globalAlpha = 1; return --p.l > 0; });
+  if (lives) for (let i = 0; i < lives; i++) { g.fillStyle = '#2ee8f7'; g.beginPath(); g.moveTo(30 + i * 34, VH - 26); g.lineTo(44 + i * 34, VH - 10); g.lineTo(16 + i * 34, VH - 10); g.fill(); }
+  g.fillStyle = '#39ff8866'; g.fillRect(0, VH - 40, VW, 2);
+  if (state !== 'play') {
+    g.fillStyle = 'rgba(0,0,0,.75)'; g.fillRect(0, 0, VW, VH); g.textAlign = 'center';
+    g.shadowBlur = 24; g.shadowColor = '#39ff88'; g.fillStyle = '#39ff88'; g.font = '900 60px system-ui'; g.fillText(state === 'over' ? 'GAME OVER' : 'STAR INVADERS', VW / 2, 230); g.shadowBlur = 0;
+    px(SPR[0], VW / 2 - 140, 270, 4, '#ff2e6e'); px(SPR[2], VW / 2 - 22, 270, 4, '#ffcf33'); px(SPR[4], VW / 2 + 96, 270, 4, '#2ee8f7');
+    g.fillStyle = '#fff'; g.font = '600 20px system-ui'; if (state === 'over') g.fillText(`Score ${score}  ·  wave ${wave}`, VW / 2, 360);
+    g.fillText('Space / tap to play', VW / 2, 400); g.fillStyle = '#9aa'; g.font = '500 15px system-ui'; g.fillText('←/→ move  ·  Space fire  ·  hit the saucer for a bonus', VW / 2, 440);
+  }
+}
+function loop() { if (state === 'play') update(); draw(); requestAnimationFrame(loop); }
+addEventListener('keydown', e => { if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(e.key)) e.preventDefault(); keys[e.key] = true; if (state !== 'play' && (e.key === ' ' || e.key === 'Enter') && !e.repeat) reset(); });
+addEventListener('keyup', e => keys[e.key] = false);
+cv.addEventListener('touchstart', e => { if (state !== 'play') return reset(); const r = cv.getBoundingClientRect(); touchX = (e.touches[0].clientX - r.left) / sc; }, { passive: true });
+cv.addEventListener('touchmove', e => { const r = cv.getBoundingClientRect(); touchX = (e.touches[0].clientX - r.left) / sc; }, { passive: true });
+cv.addEventListener('touchend', () => touchX = null);
+cv.addEventListener('mousedown', () => state !== 'play' && reset());
+loop();
+</script></body></html>

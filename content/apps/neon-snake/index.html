@@ -1,0 +1,103 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Snake</title>
+<style>
+html,body{margin:0;height:100%;background:#05070a;color:#d9fff0;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+canvas{display:block;image-rendering:pixelated;box-shadow:0 0 60px #00ff9933;border-radius:10px}
+#hud{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:28px;font:700 14px ui-monospace,monospace;letter-spacing:.1em}
+#hud b{color:#39ff88}
+</style></head><body>
+<div id="hud"><span>SCORE <b id="s">0</b></span><span>BEST <b id="b">0</b></span><span>LENGTH <b id="l">3</b></span></div>
+<div id="wrap"><canvas id="c"></canvas></div>
+<script src="arcade-kit.js"></script>
+<script>
+const N = 24, cv = document.getElementById('c'), g = cv.getContext('2d');
+let cell = 20, snake, dir, nextDirs, food, bonus, score, state = 'title', tick = 0, speed, particles = [], walls = true;
+function fit() { cell = Math.floor(Math.min(innerWidth - 20, innerHeight - 60) / N); cv.width = cv.height = cell * N; }
+addEventListener('resize', fit); fit();
+Arcade.onBest(b => document.getElementById('b').textContent = b);
+
+function reset() {
+  snake = [{ x: 8, y: 12 }, { x: 7, y: 12 }, { x: 6, y: 12 }];
+  dir = { x: 1, y: 0 }; nextDirs = []; score = 0; speed = 8; bonus = null; particles = [];
+  placeFood(); state = 'play'; upd();
+}
+function free() { let p; do p = { x: Math.random() * N | 0, y: Math.random() * N | 0 }; while (snake.some(s => s.x === p.x && s.y === p.y)); return p; }
+function placeFood() { food = free(); if (Math.random() < 0.25) bonus = { ...free(), t: 60 }; }
+function upd() {
+  document.getElementById('s').textContent = score;
+  document.getElementById('l').textContent = snake ? snake.length : 3;
+}
+function turn(x, y) {
+  const last = nextDirs.length ? nextDirs[nextDirs.length - 1] : dir;
+  if (last.x === -x && last.y === -y) return; if (last.x === x && last.y === y) return;
+  if (nextDirs.length < 3) nextDirs.push({ x, y });
+}
+function burst(x, y, col) { for (let i = 0; i < 16; i++) particles.push({ x: (x + .5) * cell, y: (y + .5) * cell, vx: (Math.random() - .5) * 6, vy: (Math.random() - .5) * 6, life: 30, col }); }
+function step() {
+  if (nextDirs.length) dir = nextDirs.shift();
+  let h = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+  if (!walls) { h.x = (h.x + N) % N; h.y = (h.y + N) % N; }
+  if (h.x < 0 || h.y < 0 || h.x >= N || h.y >= N || snake.some(s => s.x === h.x && s.y === h.y)) return die();
+  snake.unshift(h);
+  if (h.x === food.x && h.y === food.y) { score += 10; Arcade.sfx('pick'); burst(h.x, h.y, '#39ff88'); placeFood(); speed = Math.min(22, speed + 0.35); }
+  else if (bonus && h.x === bonus.x && h.y === bonus.y) { score += 50; Arcade.sfx('win'); burst(h.x, h.y, '#ffcf33'); snake.push({ ...snake[snake.length - 1] }); bonus = null; }
+  else snake.pop();
+  if (bonus && --bonus.t <= 0) bonus = null;
+  upd();
+}
+function die() { state = 'over'; Arcade.sfx('lose'); Arcade.score(score); snake.forEach(s => burst(s.x, s.y, '#ff2e6e')); }
+
+let acc = 0, last = performance.now();
+function loop(t) {
+  const dt = (t - last) / 1000; last = t; tick++;
+  if (state === 'play') { acc += dt; while (acc > 1 / speed) { acc -= 1 / speed; step(); if (state !== 'play') break; } }
+  draw(); requestAnimationFrame(loop);
+}
+function draw() {
+  g.fillStyle = '#070b10'; g.fillRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = '#0f1b22'; g.lineWidth = 1;
+  for (let i = 0; i <= N; i++) { g.beginPath(); g.moveTo(i * cell, 0); g.lineTo(i * cell, cv.height); g.stroke(); g.beginPath(); g.moveTo(0, i * cell); g.lineTo(cv.width, i * cell); g.stroke(); }
+  if (walls) { g.strokeStyle = '#ff2e6e88'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, cv.width - 3, cv.height - 3); }
+  if (snake) {
+    const pulse = 0.6 + 0.4 * Math.sin(tick / 6);
+    g.shadowBlur = 18; g.shadowColor = '#39ff88';
+    g.fillStyle = `rgba(57,255,136,${pulse})`; g.beginPath(); g.arc((food.x + .5) * cell, (food.y + .5) * cell, cell * .32, 0, 7); g.fill();
+    if (bonus) { g.shadowColor = '#ffcf33'; g.fillStyle = '#ffcf33'; g.save(); g.translate((bonus.x + .5) * cell, (bonus.y + .5) * cell); g.rotate(tick / 10); g.fillRect(-cell * .3, -cell * .3, cell * .6, cell * .6); g.restore(); }
+    snake.forEach((s, i) => {
+      const k = 1 - i / snake.length * 0.6;
+      g.shadowColor = '#2ee8f7'; g.fillStyle = i === 0 ? '#eafffa' : `hsl(${160 + i * 2},100%,${45 + k * 20}%)`;
+      const p = i === 0 ? 1 : 2; g.fillRect(s.x * cell + p, s.y * cell + p, cell - p * 2, cell - p * 2);
+    });
+    g.shadowBlur = 0;
+    const h = snake[0]; g.fillStyle = '#05070a';
+    g.fillRect((h.x + .5 + dir.x * .2 - dir.y * .2) * cell - 2, (h.y + .5 + dir.y * .2 - dir.x * .2) * cell - 2, 4, 4);
+    g.fillRect((h.x + .5 + dir.x * .2 + dir.y * .2) * cell - 2, (h.y + .5 + dir.y * .2 + dir.x * .2) * cell - 2, 4, 4);
+  }
+  particles = particles.filter(p => (p.x += p.vx, p.y += p.vy, p.vx *= .94, p.vy *= .94, --p.life > 0));
+  particles.forEach(p => { g.globalAlpha = p.life / 30; g.fillStyle = p.col; g.fillRect(p.x, p.y, 3, 3); }); g.globalAlpha = 1;
+  if (state !== 'play') {
+    g.fillStyle = 'rgba(5,7,10,.75)'; g.fillRect(0, 0, cv.width, cv.height);
+    g.textAlign = 'center'; g.fillStyle = '#39ff88'; g.shadowBlur = 20; g.shadowColor = '#39ff88';
+    g.font = `900 ${cell * 2}px system-ui`; g.fillText(state === 'over' ? 'GAME OVER' : 'NEON SNAKE', cv.width / 2, cv.height * .4); g.shadowBlur = 0;
+    g.fillStyle = '#d9fff0'; g.font = `600 ${Math.max(12, cell * .7)}px system-ui`;
+    if (state === 'over') g.fillText(`Score ${score}  ·  Best ${Math.max(score, Arcade.best)}`, cv.width / 2, cv.height * .5);
+    g.fillText('Space / tap to play', cv.width / 2, cv.height * .6);
+    g.fillStyle = '#7fb8a6'; g.font = `500 ${Math.max(11, cell * .55)}px system-ui`;
+    g.fillText(`Arrows / WASD / swipe  ·  W = walls ${walls ? 'ON' : 'OFF (wrap)'}`, cv.width / 2, cv.height * .68);
+  }
+}
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) e.preventDefault();
+  if (state !== 'play') { if (k === ' ' || k === 'Enter') reset(); if ((k === 'w' || k === 'W') && state === 'title') walls = !walls; return; }
+  if (k === 'ArrowUp' || k === 'w' || k === 'W') turn(0, -1);
+  if (k === 'ArrowDown' || k === 's' || k === 'S') turn(0, 1);
+  if (k === 'ArrowLeft' || k === 'a' || k === 'A') turn(-1, 0);
+  if (k === 'ArrowRight' || k === 'd' || k === 'D') turn(1, 0);
+});
+Arcade.swipe(d => { if (state !== 'play') return reset(); ({ up: () => turn(0, -1), down: () => turn(0, 1), left: () => turn(-1, 0), right: () => turn(1, 0) })[d]?.(); });
+cv.addEventListener('click', () => state !== 'play' && reset());
+requestAnimationFrame(loop);
+</script></body></html>

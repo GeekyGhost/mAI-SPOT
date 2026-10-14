@@ -1,0 +1,101 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mine Sweeper</title>
+<style>
+html,body{margin:0;height:100%;background:linear-gradient(160deg,#0b1a14,#05080a);color:#dfffee;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.pill{background:#0d2219;border:1px solid #1d4a36;border-radius:10px;padding:6px 12px;font:700 15px ui-monospace,monospace;min-width:64px;text-align:center}
+.lvl{background:#0d2219;border:1px solid #1d4a36;color:#9fe8c3;border-radius:10px;padding:7px 12px;font-weight:700;cursor:pointer}
+.lvl.on{background:#39ff88;color:#04140c;border-color:#39ff88}
+#face{font-size:26px;background:none;border:0;cursor:pointer}
+#grid{display:grid;gap:2px;background:#16352a;padding:6px;border-radius:12px;box-shadow:0 0 40px #39ff8822}
+.c{display:flex;align-items:center;justify-content:center;font-weight:900;border-radius:4px;cursor:pointer;background:linear-gradient(#2c5f4a,#21483a);box-shadow:inset 0 1px #ffffff22}
+.c:hover{filter:brightness(1.2)}
+.c.o{background:#0b1813;box-shadow:none;cursor:default}
+.c.b{background:#ff2e6e}
+.c.x{background:#3a1220}
+p{margin:0;color:#7fb39b;font-size:13px}
+</style></head><body>
+<div id="app">
+  <header>
+    <button class="lvl" data-l="0">Easy</button><button class="lvl" data-l="1">Medium</button><button class="lvl" data-l="2">Hard</button>
+    <span class="pill" id="mines">💣 10</span><button id="face">🙂</button><span class="pill" id="time">⏱ 0</span><span class="pill" id="best">🏆 0</span>
+  </header>
+  <div id="grid"></div>
+  <p>Click to dig · right-click (or long-press) to flag · click a number to clear around it · F toggles flag mode</p>
+</div>
+<script src="arcade-kit.js"></script>
+<script>
+const LV = [{ w: 9, h: 9, m: 10, k: 1 }, { w: 16, h: 16, m: 40, k: 3 }, { w: 24, h: 16, m: 75, k: 6 }];
+const NUM = ['', '#2ee8f7', '#39ff88', '#ffcf33', '#ff9b3d', '#ff2e6e', '#b26bff', '#fff', '#aaa'];
+let lv = 0, W, H, M, cells, first, over, flags, opened, t0, timer, flagMode = false;
+const gridEl = document.getElementById('grid');
+Arcade.onBest(b => document.getElementById('best').textContent = '🏆 ' + b);
+function start(l = lv) {
+  lv = l; ({ w: W, h: H, m: M } = LV[lv]);
+  document.querySelectorAll('.lvl').forEach(b => b.classList.toggle('on', +b.dataset.l === lv));
+  cells = Array.from({ length: W * H }, () => ({ mine: false, n: 0, open: false, flag: false }));
+  first = true; over = false; flags = 0; opened = 0; clearInterval(timer); t0 = 0;
+  document.getElementById('time').textContent = '⏱ 0'; document.getElementById('face').textContent = '🙂';
+  const size = Math.max(18, Math.min(38, Math.floor(Math.min((innerWidth - 40) / W, (innerHeight - 160) / H)) - 2));
+  gridEl.style.gridTemplateColumns = `repeat(${W}, ${size}px)`; gridEl.innerHTML = '';
+  cells.forEach((c, i) => {
+    const el = document.createElement('div'); el.className = 'c'; el.style.width = el.style.height = size + 'px'; el.style.fontSize = size * .55 + 'px';
+    el.onclick = () => (flagMode ? flag(i) : dig(i)); el.oncontextmenu = e => { e.preventDefault(); flag(i); };
+    let lp; el.ontouchstart = () => { lp = setTimeout(() => { flag(i); lp = 'done'; }, 380); }; el.ontouchend = e => { if (lp === 'done') e.preventDefault(); else clearTimeout(lp); };
+    c.el = el; gridEl.appendChild(el);
+  });
+  hud();
+}
+const nb = i => { const x = i % W, y = i / W | 0, r = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < W && ny < H) r.push(ny * W + nx); } return r; };
+function plant(safe) {
+  const ban = new Set([safe, ...nb(safe)]); let n = 0;
+  while (n < M) { const i = Math.random() * W * H | 0; if (ban.has(i) || cells[i].mine) continue; cells[i].mine = true; n++; }
+  cells.forEach((c, i) => c.n = nb(i).filter(j => cells[j].mine).length);
+  t0 = Date.now(); timer = setInterval(() => document.getElementById('time').textContent = '⏱ ' + Math.floor((Date.now() - t0) / 1000), 250);
+}
+function dig(i) {
+  if (over) return; const c = cells[i]; if (c.flag) return;
+  if (first) { first = false; plant(i); }
+  if (c.open) { // chord
+    if (c.n && nb(i).filter(j => cells[j].flag).length === c.n) nb(i).forEach(j => !cells[j].open && !cells[j].flag && reveal(j));
+  } else reveal(i);
+  check();
+}
+function reveal(i) {
+  if (over) return;
+  const st = [i];
+  while (st.length) {
+    const k = st.pop(), c = cells[k]; if (c.open || c.flag) continue;
+    c.open = true; opened++; draw(k);
+    if (c.mine) return lose(k);
+    if (!c.n) nb(k).forEach(j => !cells[j].open && st.push(j));
+  }
+  Arcade.sfx('blip');
+}
+function flag(i) { if (over || cells[i].open) return; const c = cells[i]; c.flag = !c.flag; flags += c.flag ? 1 : -1; draw(i); hud(); Arcade.sfx('hit'); }
+function draw(i) {
+  const c = cells[i], el = c.el; el.className = 'c' + (c.open ? ' o' : '');
+  el.textContent = c.flag && !c.open ? '🚩' : c.open ? (c.mine ? '💣' : c.n || '') : ''; el.style.color = NUM[c.n];
+}
+function hud() { document.getElementById('mines').textContent = '💣 ' + (M - flags); }
+function lose(k) {
+  over = true; clearInterval(timer); document.getElementById('face').textContent = '😵'; Arcade.sfx('boom');
+  cells.forEach((c, i) => { if (c.mine && !c.flag) { c.open = true; draw(i); } if (c.flag && !c.mine) { c.el.textContent = '❌'; c.el.classList.add('x'); } });
+  cells[k].el.classList.add('b');
+}
+function check() {
+  if (over || opened !== W * H - M) return;
+  over = true; clearInterval(timer); document.getElementById('face').textContent = '😎'; Arcade.sfx('win');
+  const secs = (Date.now() - t0) / 1000;
+  cells.forEach((c, i) => { if (c.mine && !c.flag) { c.flag = true; draw(i); } });
+  flags = M; hud();
+  Arcade.score(Math.round(LV[lv].k * Math.max(50, 1000 - secs * 4)));
+}
+document.querySelectorAll('.lvl').forEach(b => b.onclick = () => start(+b.dataset.l));
+document.getElementById('face').onclick = () => start();
+addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') { flagMode = !flagMode; document.body.style.cursor = flagMode ? 'crosshair' : ''; } if (e.key === 'r' || e.key === 'R') start(); });
+addEventListener('resize', () => first && start());
+start(0);
+</script></body></html>

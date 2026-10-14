@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"><defs>
+    <linearGradient id="forge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d161a"/><stop offset="1" stop-color="#030608"/></linearGradient>
+    <linearGradient id="ember" x1="0.05" y1="0" x2="0.95" y2="1">
+      <stop offset="0" stop-color="#ffcf33"/><stop offset="0.5" stop-color="#ff8e2b"/>
+      <stop offset="1" stop-color="#ff3385"/></linearGradient>
+    <linearGradient id="emberFlat" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffcf33"/><stop offset="1" stop-color="#ff3385"/></linearGradient>
+    <radialGradient id="forgeGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff8e2b" stop-opacity="0.20"/>
+      <stop offset="0.55" stop-color="#ff3385" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#ff3385" stop-opacity="0"/></radialGradient>
+  </defs><rect width="1200" height="630" fill="url(#forge)"/>
+  <g opacity="0.05"><rect x="0" y="0" width="2" height="630" fill="#00f0ff"/><rect x="56" y="0" width="2" height="630" fill="#00f0ff"/><rect x="112" y="0" width="2" height="630" fill="#00f0ff"/><rect x="168" y="0" width="2" height="630" fill="#00f0ff"/><rect x="224" y="0" width="2" height="630" fill="#00f0ff"/><rect x="280" y="0" width="2" height="630" fill="#00f0ff"/><rect x="336" y="0" width="2" height="630" fill="#00f0ff"/><rect x="392" y="0" width="2" height="630" fill="#00f0ff"/><rect x="448" y="0" width="2" height="630" fill="#00f0ff"/><rect x="504" y="0" width="2" height="630" fill="#00f0ff"/><rect x="560" y="0" width="2" height="630" fill="#00f0ff"/><rect x="616" y="0" width="2" height="630" fill="#00f0ff"/><rect x="672" y="0" width="2" height="630" fill="#00f0ff"/><rect x="728" y="0" width="2" height="630" fill="#00f0ff"/><rect x="784" y="0" width="2" height="630" fill="#00f0ff"/><rect x="840" y="0" width="2" height="630" fill="#00f0ff"/><rect x="896" y="0" width="2" height="630" fill="#00f0ff"/><rect x="952" y="0" width="2" height="630" fill="#00f0ff"/><rect x="1008" y="0" width="2" height="630" fill="#00f0ff"/><rect x="1064" y="0" width="2" height="630" fill="#00f0ff"/><rect x="1120" y="0" width="2" height="630" fill="#00f0ff"/><rect x="1176" y="0" width="2" height="630" fill="#00f0ff"/></g>
+  <ellipse cx="360.0" cy="327.6" rx="504.0" ry="390.6" fill="url(#forgeGlow)"/>
+  <rect x="0" y="0" width="1200" height="6" fill="url(#emberFlat)"/>
+  <g transform="translate(90.0,189.4) scale(0.7476) translate(-70,-88)">
+  <polygon points="70,88 398,88 385,380 70,380" fill="#f9993c"/>
+  <polygon points="398,88 442,88 412,380 385,380" fill="#ff2e6e"/>
+  <polygon points="70,380 412,380 408,424 70,424" fill="#2ee8f7"/>
+  <text x="228" y="252" text-anchor="middle" font-family="Outfit, 'Segoe UI', system-ui, sans-serif" font-size="182"
+    font-weight="800" letter-spacing="-4" fill="#111111" dominant-baseline="middle">DF</text></g>
+  <text x="420" y="286" font-family="Outfit, 'Segoe UI', system-ui, sans-serif" font-size="71"
+    font-weight="700" letter-spacing="8.7" fill="#e6fdff">DIGITAL FORGE</text>
+  <rect x="420" y="311" width="541" height="3" fill="#1a323c"/>
+  <text x="420" y="369" font-family="Outfit, 'Segoe UI', system-ui, sans-serif" font-size="39"
+    letter-spacing="11.6" fill="#ff8e2b">VIDEO STUDIO</text>
+  <text x="420" y="429" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="25"
+    fill="#649fae">Local-first AI video editing on one 16 GB GPU</text></svg>

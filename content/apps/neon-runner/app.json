@@ -1,0 +1,8 @@
+{
+ "title": "Neon Runner",
+ "kind": "game",
+ "genre": "Platformer",
+ "description": "Sprint across a synthwave city. Jump, double-jump, duck the drones and grab coins.",
+ "controls": "Space/↑ jump • ↓ duck • tap / swipe down on touch",
+ "thumbnail": "cover.svg"
+}

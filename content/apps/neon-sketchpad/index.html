@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Sketchpad</title>
+<style>
+  html,body{margin:0;height:100%;background:#05080b;color:#a1efff;font:13px system-ui,sans-serif;overflow:hidden;touch-action:none}
+  #bar{position:fixed;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:#0d161acc;border:1px solid #1a323c;border-radius:14px;padding:8px 12px;z-index:2;flex-wrap:wrap;justify-content:center}
+  .sw{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+  .sw.on{border-color:#fff}
+  button{background:#121e24;color:#e6fdff;border:1px solid #1a323c;border-radius:8px;padding:5px 10px;cursor:pointer;font:inherit}
+  button.on{background:#2ee8f7;color:#000}
+  input[type=range]{width:90px}
+  canvas{display:block}
+</style>
+</head>
+<body>
+<div id="bar">
+  <span id="swatches"></span>
+  <input id="size" type="range" min="2" max="40" value="8" title="Brush size">
+  <button id="mirror">Mirror</button>
+  <button id="clear">Clear</button>
+  <button id="save">Save PNG</button>
+</div>
+<canvas id="c"></canvas>
+<script>
+const colors=['#2ee8f7','#ff2e6e','#f9993c','#39ff88','#ffcf33','#ffffff'];
+const c=document.getElementById('c'),x=c.getContext('2d');
+let color=colors[0],mirror=false,drawing=false,last=null;
+const sw=document.getElementById('swatches');
+colors.forEach((col,i)=>{const d=document.createElement('span');d.className='sw'+(i?'':' on');d.style.background=col;d.onclick=()=>pick(i);sw.appendChild(d);});
+function pick(i){color=colors[i];[...sw.children].forEach((e,k)=>e.classList.toggle('on',k===i));}
+function fit(){const img=c.width?x.getImageData(0,0,c.width,c.height):null;c.width=innerWidth;c.height=innerHeight;x.fillStyle='#05080b';x.fillRect(0,0,c.width,c.height);if(img)x.putImageData(img,0,0);}
+addEventListener('resize',fit);fit();
+function line(a,b){x.strokeStyle=color;x.lineWidth=+size.value;x.lineCap='round';x.shadowColor=color;x.shadowBlur=+size.value*1.5;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();}
+function seg(a,b){line(a,b);if(mirror)line({x:c.width-a.x,y:a.y},{x:c.width-b.x,y:b.y});}
+c.addEventListener('pointerdown',e=>{drawing=true;last={x:e.clientX,y:e.clientY};seg(last,last);});
+c.addEventListener('pointermove',e=>{if(!drawing)return;const p={x:e.clientX,y:e.clientY};seg(last,p);last=p;});
+addEventListener('pointerup',()=>drawing=false);
+const mb=document.getElementById('mirror');
+mb.onclick=()=>{mirror=!mirror;mb.classList.toggle('on',mirror);};
+document.getElementById('clear').onclick=()=>{x.shadowBlur=0;x.fillStyle='#05080b';x.fillRect(0,0,c.width,c.height);};
+document.getElementById('save').onclick=()=>{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='neon-sketch.png';a.click();};
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){parent.postMessage({type:'ARCADE_ESC'},'*');return;}
+  if(e.key>='1'&&e.key<='6')pick(+e.key-1);
+  if(e.key==='m')mb.click(); if(e.key==='c')document.getElementById('clear').click(); if(e.key==='s')document.getElementById('save').click();
+});
+</script>
+</body>
+</html>

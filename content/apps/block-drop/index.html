@@ -1,0 +1,143 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Block Drop</title>
+<style>
+html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 0,#1b1236,#05050c 70%);color:#eee;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:18px}
+canvas{display:block}
+.side{display:flex;flex-direction:column;gap:14px;min-width:110px;font:700 12px ui-monospace,monospace;letter-spacing:.12em;color:#a99cff}
+.box{background:#0d0b1fcc;border:1px solid #2c2558;border-radius:12px;padding:10px}
+.box b{display:block;color:#fff;font-size:20px;margin-top:4px}
+#touch{position:fixed;bottom:10px;left:0;right:0;display:none;justify-content:center;gap:10px}
+#touch button{width:56px;height:56px;border-radius:14px;border:1px solid #3a3270;background:#1a1640;color:#fff;font-size:20px}
+@media (pointer:coarse){#touch{display:flex}}
+</style></head><body>
+<div id="wrap">
+  <div class="side"><div class="box">HOLD<canvas id="hold" width="96" height="72"></canvas></div><div class="box">SCORE<b id="score">0</b></div><div class="box">BEST<b id="best">0</b></div></div>
+  <canvas id="c"></canvas>
+  <div class="side"><div class="box">NEXT<canvas id="next" width="96" height="220"></canvas></div><div class="box">LEVEL<b id="level">1</b></div><div class="box">LINES<b id="lines">0</b></div></div>
+</div>
+<div id="touch"><button data-k="ArrowLeft">◀</button><button data-k="ArrowUp">⟳</button><button data-k="ArrowDown">▼</button><button data-k=" ">⤓</button><button data-k="ArrowRight">▶</button><button data-k="c">H</button></div>
+<script src="arcade-kit.js"></script>
+<script>
+const W = 10, H = 20, cv = document.getElementById('c'), g = cv.getContext('2d');
+let S = 28;
+const COLORS = { I: '#2ee8f7', O: '#ffcf33', T: '#b26bff', S: '#39ff88', Z: '#ff2e6e', J: '#3d7bff', L: '#f9993c' };
+const SHAPES = {
+  I: [[0, 1], [1, 1], [2, 1], [3, 1]], O: [[1, 0], [2, 0], [1, 1], [2, 1]], T: [[1, 0], [0, 1], [1, 1], [2, 1]],
+  S: [[1, 0], [2, 0], [0, 1], [1, 1]], Z: [[0, 0], [1, 0], [1, 1], [2, 1]], J: [[0, 0], [0, 1], [1, 1], [2, 1]], L: [[2, 0], [0, 1], [1, 1], [2, 1]]
+};
+let board, piece, queue, hold, canHold, score, lines, level, state = 'title', dropT = 0, lockT = 0, flash = [], over = false;
+function fit() { S = Math.max(16, Math.floor(Math.min((innerHeight - 30) / H, (innerWidth - 300) / W))); cv.width = W * S; cv.height = H * S; }
+addEventListener('resize', fit); fit();
+Arcade.onBest(b => document.getElementById('best').textContent = b);
+
+function bag() { const b = Object.keys(SHAPES); for (let i = b.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [b[i], b[j]] = [b[j], b[i]]; } return b; }
+function make(t) { return { t, cells: SHAPES[t].map(c => [...c]), x: 3, y: t === 'I' ? -1 : 0, r: 0 }; }
+function reset() {
+  board = Array.from({ length: H }, () => Array(W).fill(null));
+  queue = [...bag(), ...bag()]; hold = null; canHold = true; score = 0; lines = 0; level = 1; flash = [];
+  spawn(); state = 'play'; hud();
+}
+function spawn() {
+  if (queue.length < 7) queue.push(...bag());
+  piece = make(queue.shift()); canHold = true;
+  if (collide(piece, 0, 0)) { state = 'over'; Arcade.sfx('lose'); Arcade.score(score); }
+}
+function collide(p, dx, dy, cells = p.cells) {
+  return cells.some(([cx, cy]) => { const x = p.x + cx + dx, y = p.y + cy + dy; return x < 0 || x >= W || y >= H || (y >= 0 && board[y][x]); });
+}
+function rotate(dir) {
+  if (piece.t === 'O') return;
+  const size = piece.t === 'I' ? 4 : 3;
+  const cells = piece.cells.map(([x, y]) => dir > 0 ? [size - 1 - y, x] : [y, size - 1 - x]);
+  for (const [kx, ky] of [[0, 0], [-1, 0], [1, 0], [0, -1], [-2, 0], [2, 0], [0, 1]]) {
+    if (!collide(piece, kx, ky, cells)) { piece.cells = cells; piece.x += kx; piece.y += ky; lockT = 0; Arcade.sfx('blip'); return; }
+  }
+}
+function move(dx) { if (!collide(piece, dx, 0)) { piece.x += dx; lockT = 0; } }
+function ghostY() { let d = 0; while (!collide(piece, 0, d + 1)) d++; return d; }
+function lock() {
+  piece.cells.forEach(([cx, cy]) => { const y = piece.y + cy; if (y >= 0) board[y][piece.x + cx] = COLORS[piece.t]; });
+  if (piece.cells.some(([, cy]) => piece.y + cy < 0)) { state = 'over'; Arcade.sfx('lose'); Arcade.score(score); return; }
+  const full = []; board.forEach((r, y) => r.every(Boolean) && full.push(y));
+  if (full.length) {
+    flash = full.map(y => ({ y, t: 12 }));
+    full.forEach(y => { board.splice(y, 1); board.unshift(Array(W).fill(null)); });
+    lines += full.length; score += [0, 100, 300, 500, 800][full.length] * level;
+    level = 1 + Math.floor(lines / 10); Arcade.sfx(full.length >= 4 ? 'win' : 'pick');
+  } else Arcade.sfx('hit');
+  spawn(); hud();
+}
+function hardDrop() { const d = ghostY(); piece.y += d; score += d * 2; lock(); }
+function doHold() {
+  if (!canHold) return;
+  const t = piece.t;
+  if (hold) piece = make(hold); else spawn();
+  hold = t; canHold = false; Arcade.sfx('blip'); hud();
+}
+function hud() { for (const k of ['score', 'level', 'lines']) document.getElementById(k).textContent = { score, level, lines }[k]; drawSide(); }
+function drawMini(ctx, t, ox, oy, s) {
+  SHAPES[t].forEach(([x, y]) => { ctx.fillStyle = COLORS[t]; ctx.fillRect(ox + x * s, oy + y * s, s - 2, s - 2); });
+}
+function drawSide() {
+  const hc = document.getElementById('hold').getContext('2d'); hc.clearRect(0, 0, 96, 72); if (hold) { hc.globalAlpha = canHold ? 1 : .35; drawMini(hc, hold, 12, 16, 18); hc.globalAlpha = 1; }
+  const nc = document.getElementById('next').getContext('2d'); nc.clearRect(0, 0, 96, 220); (queue || []).slice(0, 4).forEach((t, i) => drawMini(nc, t, 12, 8 + i * 54, 17));
+}
+function cellRect(x, y, col, alpha = 1) {
+  g.globalAlpha = alpha; g.fillStyle = col; g.fillRect(x * S + 1, y * S + 1, S - 2, S - 2);
+  g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(x * S + 1, y * S + 1, S - 2, 3); g.globalAlpha = 1;
+}
+let last = performance.now();
+function loop(t) {
+  const dt = t - last; last = t;
+  if (state === 'play') {
+    const interval = Math.max(60, 800 - (level - 1) * 70);
+    dropT += dt * (keys.ArrowDown ? 12 : 1);
+    if (dropT > interval) { dropT = 0; if (!collide(piece, 0, 1)) { piece.y++; if (keys.ArrowDown) score++; } }
+    if (collide(piece, 0, 1)) { lockT += dt; if (lockT > 450) { lockT = 0; lock(); } } else lockT = 0;
+    das(dt);
+  }
+  draw(); requestAnimationFrame(loop);
+}
+function draw() {
+  g.fillStyle = '#0a0818'; g.fillRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = '#161230'; for (let x = 0; x <= W; x++) { g.beginPath(); g.moveTo(x * S, 0); g.lineTo(x * S, cv.height); g.stroke(); } for (let y = 0; y <= H; y++) { g.beginPath(); g.moveTo(0, y * S); g.lineTo(cv.width, y * S); g.stroke(); }
+  if (board) board.forEach((r, y) => r.forEach((c, x) => c && cellRect(x, y, c)));
+  flash = flash.filter(f => { g.fillStyle = `rgba(255,255,255,${f.t / 12})`; g.fillRect(0, f.y * S, cv.width, S); return --f.t > 0; });
+  if (state === 'play') {
+    const gy = ghostY(); piece.cells.forEach(([x, y]) => { g.strokeStyle = COLORS[piece.t]; g.globalAlpha = .45; g.strokeRect((piece.x + x) * S + 2, (piece.y + y + gy) * S + 2, S - 4, S - 4); g.globalAlpha = 1; });
+    g.shadowBlur = 14; g.shadowColor = COLORS[piece.t]; piece.cells.forEach(([x, y]) => piece.y + y >= 0 && cellRect(piece.x + x, piece.y + y, COLORS[piece.t])); g.shadowBlur = 0;
+  }
+  g.strokeStyle = '#4b3fa0'; g.lineWidth = 2; g.strokeRect(1, 1, cv.width - 2, cv.height - 2); g.lineWidth = 1;
+  if (state !== 'play') {
+    g.fillStyle = 'rgba(8,6,20,.82)'; g.fillRect(0, 0, cv.width, cv.height); g.textAlign = 'center';
+    g.fillStyle = '#b26bff'; g.shadowBlur = 20; g.shadowColor = '#b26bff'; g.font = `900 ${S * 1.4}px system-ui`;
+    g.fillText(state === 'over' ? 'GAME OVER' : state === 'paused' ? 'PAUSED' : 'BLOCK DROP', cv.width / 2, cv.height * .38); g.shadowBlur = 0;
+    g.fillStyle = '#fff'; g.font = `600 ${S * .55}px system-ui`;
+    if (state === 'over') g.fillText(`Score ${score}`, cv.width / 2, cv.height * .46);
+    g.fillText(state === 'paused' ? 'P to resume' : 'Space / tap to play', cv.width / 2, cv.height * .54);
+    g.fillStyle = '#a99cff'; g.font = `500 ${S * .42}px system-ui`;
+    ['←/→ move  ·  ↑/X rotate  ·  Z rotate back', '↓ soft drop  ·  Space hard drop', 'C hold  ·  P pause'].forEach((l, i) => g.fillText(l, cv.width / 2, cv.height * .64 + i * S * .7));
+  }
+}
+const keys = {}; let dasT = 0, dasDir = 0;
+function das(dt) { if (!dasDir) return; dasT += dt; if (dasT > 150) { move(dasDir); dasT = 110; } }
+addEventListener('keydown', e => {
+  if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+  if (state === 'title' || state === 'over') { if (e.key === ' ' || e.key === 'Enter') reset(); return; }
+  if (e.key === 'p' || e.key === 'P') { state = state === 'paused' ? 'play' : 'paused'; return; }
+  if (state !== 'play' || e.repeat && e.key !== 'ArrowDown') return;
+  keys[e.key] = true;
+  if (e.key === 'ArrowLeft') { move(-1); dasDir = -1; dasT = 0; }
+  if (e.key === 'ArrowRight') { move(1); dasDir = 1; dasT = 0; }
+  if (e.key === 'ArrowUp' || e.key === 'x' || e.key === 'X') rotate(1);
+  if (e.key === 'z' || e.key === 'Z') rotate(-1);
+  if (e.key === ' ') hardDrop();
+  if (e.key === 'c' || e.key === 'C' || e.key === 'Shift') doHold();
+});
+addEventListener('keyup', e => { keys[e.key] = false; if ((e.key === 'ArrowLeft' && dasDir < 0) || (e.key === 'ArrowRight' && dasDir > 0)) dasDir = 0; });
+document.querySelectorAll('#touch button').forEach(b => b.addEventListener('touchstart', ev => { ev.preventDefault(); const k = b.dataset.k; if (state !== 'play') return reset(); if (k === 'ArrowDown') { if (!collide(piece, 0, 1)) piece.y++; return; } dispatchEvent(new KeyboardEvent('keydown', { key: k })); dispatchEvent(new KeyboardEvent('keyup', { key: k })); }));
+cv.addEventListener('click', () => (state === 'title' || state === 'over') && reset());
+drawSide(); requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,8 @@
+{
+ "title": "Neon Snake",
+ "kind": "game",
+ "genre": "Arcade",
+ "description": "Eat, grow, don’t bite yourself. Golden bonuses, speed that ramps up, and walls you can switch off.",
+ "controls": "Arrows / WASD / swipe • W on the title screen toggles walls",
+ "thumbnail": "cover.svg"
+}

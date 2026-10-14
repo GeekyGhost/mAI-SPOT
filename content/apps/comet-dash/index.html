@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Comet Dash</title>
+<style>html,body{margin:0;height:100%;background:#020309;overflow:hidden;user-select:none;touch-action:none}canvas{display:block;margin:auto}</style>
+</head><body><canvas id="c"></canvas>
+<script src="arcade-kit.js"></script>
+<script>
+const VW = 480, VH = 720, cv = document.getElementById('c'), g = cv.getContext('2d');
+let sc = 1;
+function fit() { sc = Math.min(innerWidth / VW, innerHeight / VH); cv.width = VW * sc; cv.height = VH * sc; cv.style.marginTop = (innerHeight - cv.height) / 2 + 'px'; }
+addEventListener('resize', fit); fit();
+let state = 'title', y, vy, gates = [], score = 0, t = 0, trail = [], best = 0, stars = [], shake = 0, flashT = 0;
+for (let i = 0; i < 120; i++) stars.push({ x: Math.random() * VW, y: Math.random() * VH, z: Math.random() * 3 + .3 });
+Arcade.onBest(b => best = b);
+const X = 120, GAP0 = 190;
+function reset() { y = VH / 2; vy = 0; gates = []; score = 0; t = 0; trail = []; state = 'play'; flap(); }
+function flap() { vy = -7.6; Arcade.sfx('jump'); }
+function spawnGate() {
+  const gap = Math.max(130, GAP0 - score * 2.5), top = 90 + Math.random() * (VH - 180 - gap);
+  gates.push({ x: VW + 40, top, gap, w: 70, passed: false, wob: Math.random() * 6, move: score > 10 ? (Math.random() - .5) * 1.4 : 0 });
+}
+function rock(x, y0, w, h) {
+  g.fillStyle = '#2a2140'; g.strokeStyle = '#b26bff'; g.lineWidth = 3; g.shadowBlur = 16; g.shadowColor = '#b26bff';
+  g.beginPath(); g.roundRect(x, y0, w, h, 14); g.fill(); g.stroke(); g.shadowBlur = 0;
+  g.fillStyle = '#3a2d58'; for (let i = 0; i < h / 40; i++) { g.beginPath(); g.arc(x + 18 + (i * 23) % (w - 30), y0 + 20 + i * 40, 6 + (i % 3) * 2, 0, 7); g.fill(); }
+}
+function update() {
+  t++;
+  vy = Math.min(11, vy + .42); y += vy;
+  if (t % 90 === 1) spawnGate();
+  const speed = 3 + Math.min(3, score * .08);
+  for (const gt of gates) {
+    gt.x -= speed; gt.top += gt.move; if (gt.top < 60 || gt.top + gt.gap > VH - 60) gt.move *= -1;
+    if (!gt.passed && gt.x + gt.w < X) { gt.passed = true; score++; Arcade.sfx('pick'); flashT = 6; }
+    const inX = X + 14 > gt.x && X - 14 < gt.x + gt.w;
+    if (inX && (y - 14 < gt.top || y + 14 > gt.top + gt.gap)) return crash();
+  }
+  gates = gates.filter(gt => gt.x > -100);
+  if (y > VH - 12 || y < 12) return crash();
+  trail.push({ x: X, y }); if (trail.length > 26) trail.shift();
+}
+function crash() { state = 'over'; shake = 16; Arcade.sfx('boom'); Arcade.score(score); }
+function draw() {
+  g.setTransform(sc, 0, 0, sc, 0, 0);
+  if (shake > .5) { g.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake); shake *= .88; }
+  const bg = g.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#0a0620'); bg.addColorStop(1, '#020309'); g.fillStyle = bg; g.fillRect(-20, -20, VW + 40, VH + 40);
+  for (const s of stars) { if (state === 'play') { s.x -= s.z * .8; if (s.x < 0) { s.x = VW; s.y = Math.random() * VH; } } g.fillStyle = `rgba(255,255,255,${s.z / 3.3})`; g.fillRect(s.x, s.y, s.z, s.z); }
+  for (const gt of gates) { rock(gt.x, -20, gt.w, gt.top + 20); rock(gt.x, gt.top + gt.gap, gt.w, VH - gt.top - gt.gap + 20); }
+  trail.forEach((p, i) => { const k = i / trail.length; g.fillStyle = `rgba(46,232,247,${k * .5})`; g.beginPath(); g.arc(p.x - (trail.length - i) * 3, p.y, 12 * k, 0, 7); g.fill(); });
+  if (y !== undefined) {
+    g.save(); g.translate(X, y); g.rotate(Math.max(-.6, Math.min(1, vy / 10)));
+    g.shadowBlur = 30; g.shadowColor = '#2ee8f7'; g.fillStyle = '#e8fdff'; g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill();
+    g.fillStyle = '#2ee8f7'; g.beginPath(); g.moveTo(-10, -9); g.lineTo(-34, 0); g.lineTo(-10, 9); g.fill(); g.restore(); g.shadowBlur = 0;
+  }
+  if (flashT > 0) { flashT--; g.fillStyle = `rgba(46,232,247,${flashT / 30})`; g.fillRect(0, 0, VW, VH); }
+  g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = '900 64px system-ui'; g.shadowBlur = 20; g.shadowColor = '#2ee8f7';
+  if (state === 'play') g.fillText(score, VW / 2, 100); g.shadowBlur = 0;
+  if (state !== 'play') {
+    g.fillStyle = 'rgba(2,3,9,.72)'; g.fillRect(0, 0, VW, VH);
+    g.fillStyle = '#2ee8f7'; g.font = '900 54px system-ui'; g.shadowBlur = 24; g.shadowColor = '#2ee8f7';
+    g.fillText(state === 'over' ? 'CRASHED!' : 'COMET DASH', VW / 2, 260); g.shadowBlur = 0;
+    g.fillStyle = '#fff'; g.font = '600 22px system-ui';
+    if (state === 'over') g.fillText(`Score ${score}   ·   Best ${Math.max(best, score)}`, VW / 2, 320);
+    g.fillText('Space / click / tap to fly', VW / 2, 380);
+    g.fillStyle = '#8fa'; g.font = '500 15px system-ui'; g.fillText('Thread the comet through the asteroid gates.', VW / 2, 420);
+  }
+}
+function loop() { if (state === 'play') update(); draw(); requestAnimationFrame(loop); }
+const press = () => { if (state === 'play') flap(); else if (state === 'title' || shake < 2) reset(); };
+addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); if (!e.repeat) press(); } });
+cv.addEventListener('mousedown', press); cv.addEventListener('touchstart', e => { e.preventDefault(); press(); }, { passive: false });
+loop();
+</script></body></html>

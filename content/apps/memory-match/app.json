@@ -1,0 +1,8 @@
+{
+ "title": "Memory Match",
+ "kind": "game",
+ "genre": "Casual",
+ "description": "Flip cards and find the pairs, in as few moves as you can. 4×4 or 6×6.",
+ "controls": "Click to flip • R restart",
+ "thumbnail": "cover.svg"
+}

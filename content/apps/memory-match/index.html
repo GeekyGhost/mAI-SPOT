@@ -1,0 +1,71 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Match</title>
+<style>
+html,body{margin:0;height:100%;background:radial-gradient(circle at 30% 0,#0e2a3a,#04070b 70%);color:#e9fbff;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+h1{margin:0 10px 0 0;font-size:30px;font-weight:900;letter-spacing:-.02em;color:#2ee8f7;text-shadow:0 0 18px #2ee8f788}
+.pill{background:#0b1f2a;border:1px solid #17394a;border-radius:10px;padding:6px 12px;font:700 14px ui-monospace,monospace}
+.sz{background:#0b1f2a;border:1px solid #17394a;color:#9fdcec;border-radius:10px;padding:7px 12px;font-weight:700;cursor:pointer}
+.sz.on{background:#2ee8f7;color:#03141a}
+#grid{display:grid;gap:10px;perspective:800px}
+.card{position:relative;cursor:pointer;transform-style:preserve-3d;transition:transform .35s}
+.card.up,.card.done{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:14px;display:flex;align-items:center;justify-content:center;backface-visibility:hidden}
+.back{background:linear-gradient(135deg,#123a4d,#0a1e29);border:2px solid #1f5a73;box-shadow:inset 0 0 0 6px #0a1e29}
+.back::after{content:'';width:40%;height:40%;border-radius:50%;border:3px solid #2ee8f755}
+.front{transform:rotateY(180deg);background:#e9fbff;border:2px solid #fff}
+.card.done .front{background:#2ee8f7;box-shadow:0 0 22px #2ee8f7aa}
+#win{display:none;position:fixed;inset:0;background:rgba(3,8,12,.82);align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#win h2{margin:0;font-size:46px;color:#2ee8f7}
+#win button{background:#2ee8f7;border:0;border-radius:12px;padding:12px 18px;font-weight:800;cursor:pointer}
+</style></head><body>
+<div id="app">
+  <header><h1>MEMORY</h1><button class="sz" data-n="4">4×4</button><button class="sz" data-n="6">6×6</button>
+  <span class="pill" id="moves">Moves 0</span><span class="pill" id="time">⏱ 0</span><span class="pill" id="best">🏆 0</span></header>
+  <div id="grid"></div>
+</div>
+<div id="win"><h2>All matched!</h2><div id="ws" class="pill"></div><button id="again">Play again</button></div>
+<script src="arcade-kit.js"></script>
+<script>
+const ICONS = ['🎧', '🎸', '🚀', '👾', '🌙', '🔥', '💎', '🎮', '🍕', '🌵', '🐙', '🦊', '🍩', '⚡', '🎲', '🪐', '🐳', '🍉', '🎹', '🦄'];
+let n = 4, cards, open, moves, matched, t0, timer, lock;
+Arcade.onBest(b => document.getElementById('best').textContent = '🏆 ' + b);
+function start(size = n) {
+  n = size; document.querySelectorAll('.sz').forEach(b => b.classList.toggle('on', +b.dataset.n === n));
+  const pairs = n * n / 2, pick = [...ICONS].sort(() => Math.random() - .5).slice(0, pairs);
+  cards = [...pick, ...pick].sort(() => Math.random() - .5).map(v => ({ v, done: false }));
+  open = []; moves = 0; matched = 0; lock = false; clearInterval(timer); t0 = 0;
+  document.getElementById('moves').textContent = 'Moves 0'; document.getElementById('time').textContent = '⏱ 0'; document.getElementById('win').style.display = 'none';
+  const s = Math.floor(Math.min(110, (Math.min(innerWidth, innerHeight - 110) - 40) / n - 10));
+  const grid = document.getElementById('grid'); grid.style.gridTemplateColumns = `repeat(${n}, ${s}px)`; grid.innerHTML = '';
+  cards.forEach((c, i) => {
+    const el = document.createElement('div'); el.className = 'card'; el.style.width = el.style.height = s + 'px';
+    el.innerHTML = `<div class="face back"></div><div class="face front" style="font-size:${s * .52}px">${c.v}</div>`;
+    el.onclick = () => flip(i); c.el = el; grid.appendChild(el);
+  });
+}
+function flip(i) {
+  const c = cards[i]; if (lock || c.done || open.includes(i)) return;
+  if (!t0) { t0 = Date.now(); timer = setInterval(() => document.getElementById('time').textContent = '⏱ ' + Math.floor((Date.now() - t0) / 1000), 250); }
+  c.el.classList.add('up'); open.push(i); Arcade.sfx('blip');
+  if (open.length < 2) return;
+  moves++; document.getElementById('moves').textContent = 'Moves ' + moves;
+  const [a, b] = open.map(k => cards[k]);
+  if (a.v === b.v) {
+    a.done = b.done = true; a.el.classList.add('done'); b.el.classList.add('done'); open = []; matched++; Arcade.sfx('pick');
+    if (matched === cards.length / 2) win();
+  } else { lock = true; setTimeout(() => { a.el.classList.remove('up'); b.el.classList.remove('up'); open = []; lock = false; Arcade.sfx('hit'); }, 750); }
+}
+function win() {
+  clearInterval(timer); const secs = Math.floor((Date.now() - t0) / 1000), pairs = cards.length / 2;
+  const score = Math.max(10, Math.round(pairs * 100 * (pairs / moves) - secs * 2));
+  document.getElementById('ws').textContent = `${moves} moves · ${secs}s · ${score} points`;
+  document.getElementById('win').style.display = 'flex'; Arcade.sfx('win'); Arcade.score(score);
+}
+document.querySelectorAll('.sz').forEach(b => b.onclick = () => start(+b.dataset.n));
+document.getElementById('again').onclick = () => start();
+addEventListener('keydown', e => { if (e.key === 'r' || e.key === 'R') start(); });
+start(4);
+</script></body></html>

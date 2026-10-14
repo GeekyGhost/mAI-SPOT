@@ -1,0 +1,8 @@
+{
+ "title": "Comet Dash",
+ "kind": "game",
+ "genre": "Action",
+ "description": "One button, endless space. Thread your comet through the drifting asteroid gates.",
+ "controls": "Space / click / tap to fly",
+ "thumbnail": "cover.svg"
+}

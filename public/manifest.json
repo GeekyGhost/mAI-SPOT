@@ -1,0 +1,26 @@
+{
+  "name": "mAI Spot - Sovereign P2P Social Broadcast Node",
+  "short_name": "mAI Spot",
+  "description": "Stream personal channels, PulseAmp audio, and ChromaVision cinema channels.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030608",
+  "theme_color": "#f9993c",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

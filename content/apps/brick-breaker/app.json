@@ -1,0 +1,8 @@
+{
+ "title": "Brick Breaker",
+ "kind": "game",
+ "genre": "Arcade",
+ "description": "Smash every brick. Catch power-ups for a wide paddle, multi-ball, slow motion and extra lives.",
+ "controls": "Mouse or ←/→ • Click / Space to launch",
+ "thumbnail": "cover.svg"
+}

@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0d0f12;
+  --foreground: #ededed;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Space Grotesk Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: 'ss01', 'ss02';
+  overflow-x: hidden;
+}
+h1, h2, h3 { letter-spacing: -0.02em; }
+:focus-visible { outline: 2px solid var(--spot-accent); outline-offset: 2px; }
+
+/* Custom Sleek Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #14171f;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a313d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ff8800;
+}
+
+/* Winamp Vintage UI Styles */
+.winamp-bevel-out {
+  border-top: 1px solid #4f5866;
+  border-left: 1px solid #4f5866;
+  border-right: 1px solid #101216;
+  border-bottom: 1px solid #101216;
+}
+
+.winamp-bevel-in {
+  border-top: 1px solid #08090b;
+  border-left: 1px solid #08090b;
+  border-right: 1px solid #3c4450;
+  border-bottom: 1px solid #3c4450;
+}
+
+.winamp-title-bar {
+  background: linear-gradient(90deg, #1f2b38 0%, #111b24 100%);
+  letter-spacing: 0.5px;
+}
+
+.winamp-lcd-screen {
+  background: #050d07;
+  box-shadow: inset 0 0 10px rgba(0, 255, 100, 0.08);
+}
+
+.led-text {
+  color: #00ff73;
+  text-shadow: 0 0 8px rgba(0, 255, 115, 0.6);
+  font-family: "Courier New", Courier, monospace;
+}
+
+.led-text-amber {
+  color: #ffb000;
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.6);
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Custom sliders */
+input[type=range].winamp-slider {
+  -webkit-appearance: none;
+  background: #101317;
+  height: 6px;
+  border-radius: 2px;
+  border: 1px solid #2a313d;
+}
+input[type=range].winamp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 10px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #5a6575 0%, #2b323b 100%);
+  border: 1px solid #8c9ba5;
+  cursor: pointer;
+}
+
+input[type=range].vlc-slider {
+  -webkit-appearance: none;
+  background: #252b36;
+  height: 5px;
+  border-radius: 3px;
+}
+input[type=range].vlc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 13px;
+  width: 13px;
+  border-radius: 50%;
+  background: #ff8800;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(255, 136, 0, 0.6);
+}
+
+/* ───────────── mAI Spot theme plumbing ─────────────
+   The station theme (Studio → Theme) sets these on the app root. */
+:root {
+  --spot-accent: #2ee8f7;
+  --spot-accent-rgb: 46 232 247;
+  --spot-glow: rgba(46, 232, 247, 0.35);
+  --spot-surface: rgba(13, 22, 26, 0.9);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+/* No fill-mode on purpose: a held transform would make this element the containing block
+   for position:fixed children (modals, players) and trap them inside the page. */
+.animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+
+@keyframes marquee {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+
+/* Spot page canvas: fonts and panel borders follow the theme. */
+.spot-canvas.spot-font-cyber { font-family: 'JetBrains Mono Variable', Consolas, 'Cascadia Mono', 'Courier New', monospace; }
+.spot-canvas.spot-font-pixel { font-family: 'Lucida Console', 'Courier New', monospace; letter-spacing: 0.02em; }
+.spot-canvas.spot-font-retro-serif { font-family: Georgia, 'Times New Roman', serif; }
+.spot-canvas.spot-font-clean { font-family: 'Space Grotesk Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Grain + glow used by hero banners */
+.spot-grain::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.18; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.6'/></svg>");
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+@keyframes eqbar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+.eq-bars span { display: inline-block; width: 3px; margin-right: 2px; background: currentColor; transform-origin: bottom; animation: eqbar 0.9s ease-in-out infinite; border-radius: 1px; }
+.eq-bars span:nth-child(2) { animation-delay: -0.3s; }
+.eq-bars span:nth-child(3) { animation-delay: -0.6s; }
+
+/* ───────────── Spot page looks (Studio → Layout → Look) ───────────── */
+.spot-look { --panel-radius: 18px; --panel-pad: 16px; --spot-gap: 18px; }
+.spot-look.radius-sharp { --panel-radius: 4px; }
+.spot-look.radius-soft { --panel-radius: 16px; }
+.spot-look.radius-round { --panel-radius: 28px; }
+.spot-look.density-compact { --panel-pad: 11px; --spot-gap: 11px; }
+.spot-card { border-radius: var(--panel-radius); transition: box-shadow .2s, border-color .2s, transform .2s; position: relative; }
+.spot-pad { padding: var(--panel-pad); }
+.spot-title { font-weight: 700; color: #fff; font-size: .95rem; letter-spacing: -.01em; }
+.panel-glass .spot-card { background: rgba(9, 15, 19, .62); backdrop-filter: blur(16px) saturate(140%); border: 1px solid rgba(255, 255, 255, .08); box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+.panel-solid .spot-card { background: #0b1216; border: 1px solid #1b2c33; }
+.panel-outline .spot-card { background: rgba(3, 6, 8, .35); border: 1.5px solid color-mix(in srgb, var(--spot-accent) 45%, transparent); }
+.panel-neon .spot-card { background: rgba(5, 9, 12, .86); border: 1px solid color-mix(in srgb, var(--spot-accent) 65%, transparent); box-shadow: 0 0 26px var(--spot-glow), inset 0 0 22px color-mix(in srgb, var(--spot-accent) 7%, transparent); }
+.panel-retro .spot-card { background: #151a23; border-radius: 3px; border-top: 2px solid #5b6675; border-left: 2px solid #5b6675; border-right: 2px solid #0b0d10; border-bottom: 2px solid #0b0d10; box-shadow: 4px 4px 0 rgba(0, 0, 0, .5); }
+.panel-retro .spot-title { font-family: 'JetBrains Mono Variable', monospace; text-transform: uppercase; font-size: .8rem; letter-spacing: .08em; }
+.spot-card:hover { border-color: color-mix(in srgb, var(--spot-accent) 40%, transparent); }
+
+/* Animated backgrounds behind the Spot page */
+.spot-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.spot-bg.in-preview { position: absolute; }
+.spot-bg-stars::before, .spot-bg-stars::after {
+  content: ''; position: absolute; inset: -50%;
+  background-image: radial-gradient(1.5px 1.5px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 120px 80px, #cfe, transparent),
+    radial-gradient(1.2px 1.2px at 220px 150px, #fff, transparent), radial-gradient(1px 1px at 320px 40px, #adf, transparent),
+    radial-gradient(1.6px 1.6px at 60px 220px, var(--spot-accent), transparent), radial-gradient(1px 1px at 280px 260px, #fff, transparent);
+  background-size: 360px 300px; opacity: .55; animation: starDrift 140s linear infinite;
+}
+.spot-bg-stars::after { background-size: 520px 430px; opacity: .3; animation-duration: 240s; }
+@keyframes starDrift { to { transform: translate(-360px, -300px); } }
+.spot-bg-grid::before {
+  content: ''; position: absolute; left: -50%; right: -50%; bottom: -10%; height: 55%;
+  background-image: linear-gradient(color-mix(in srgb, var(--spot-accent) 45%, transparent) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, color-mix(in srgb, var(--spot-accent) 45%, transparent) 1.5px, transparent 1.5px);
+  background-size: 60px 60px; transform: perspective(380px) rotateX(62deg); transform-origin: top; animation: gridRun 3s linear infinite;
+  mask-image: linear-gradient(to bottom, transparent, #000 40%); opacity: .45;
+}
+.spot-bg-grid::after { content: ''; position: absolute; left: 50%; bottom: 40%; width: 46vmin; height: 46vmin; transform: translate(-50%, 50%); border-radius: 50%;
+  background: linear-gradient(#ffcf33, #ff2e6e 70%); opacity: .16; filter: blur(2px); mask-image: repeating-linear-gradient(to bottom, #000 0 14px, transparent 14px 20px); }
+@keyframes gridRun { to { background-position: 0 60px; } }
+.spot-bg-aurora::before, .spot-bg-aurora::after {
+  content: ''; position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%; filter: blur(90px); opacity: .22;
+  background: radial-gradient(circle, var(--spot-accent), transparent 65%); top: -30vmax; left: -15vmax; animation: aurora 26s ease-in-out infinite alternate;
+}
+.spot-bg-aurora::after { background: radial-gradient(circle, #ff2e6e, transparent 65%); top: auto; left: auto; bottom: -35vmax; right: -20vmax; animation-duration: 34s; }
+@keyframes aurora { to { transform: translate(25vmax, 18vmax) scale(1.2); } }
+.spot-bg-scanlines::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); animation: flicker 6s steps(1) infinite; }
+.spot-bg-scanlines::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, .55)); }
+@keyframes flicker { 50% { opacity: .7; } 52% { opacity: 1; } }
+.spot-bg-bubbles span { position: absolute; bottom: -120px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--spot-accent) 60%, #fff), color-mix(in srgb, var(--spot-accent) 15%, transparent));
+  opacity: .14; animation: bubble linear infinite; }
+@keyframes bubble { to { transform: translateY(-120vh) translateX(40px); } }
+@media (prefers-reduced-motion: reduce) { .spot-bg *, .spot-bg::before, .spot-bg::after { animation: none !important; } }
+
+.tv-static { background: repeating-radial-gradient(circle at 17% 32%, #fff 0 1px, transparent 1px 3px), #444; animation: tvNoise .1s steps(3) infinite; opacity: .85; }
+@keyframes tvNoise { 33% { background-position: 4px 2px; } 66% { background-position: -3px 5px; } }

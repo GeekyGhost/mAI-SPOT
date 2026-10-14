@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Runner</title>
+<style>html,body{margin:0;height:100%;background:#07020f;overflow:hidden;user-select:none;touch-action:none}canvas{display:block;margin:auto}</style>
+</head><body><canvas id="c"></canvas>
+<script src="arcade-kit.js"></script>
+<script>
+const VW = 960, VH = 540, GROUND = 430, cv = document.getElementById('c'), g = cv.getContext('2d');
+let sc = 1;
+function fit() { sc = Math.min(innerWidth / VW, innerHeight / VH); cv.width = VW * sc; cv.height = VH * sc; cv.style.marginTop = (innerHeight - cv.height) / 2 + 'px'; }
+addEventListener('resize', fit); fit();
+let state = 'title', p, obs, coins, speed, dist, score, t, best = 0, parts, ducking = false, nextObs;
+Arcade.onBest(b => best = b);
+function reset() { p = { x: 150, y: GROUND, vy: 0, jumps: 0 }; obs = []; coins = []; parts = []; speed = 7; dist = 0; score = 0; t = 0; nextObs = 60; state = 'play'; }
+function jump() { if (p.jumps < 2) { p.vy = p.jumps ? -13 : -16; p.jumps++; Arcade.sfx('jump'); for (let i = 0; i < 8; i++) parts.push({ x: p.x, y: p.y, vx: -Math.random() * 3, vy: Math.random() * -2, l: 20, c: '#2ee8f7' }); } }
+function spawn() {
+  const r = Math.random();
+  if (r < .45) obs.push({ x: VW + 20, y: GROUND - 46, w: 30, h: 46, k: 'block' });
+  else if (r < .65) obs.push({ x: VW + 20, y: GROUND - 34, w: 70, h: 34, k: 'wide' });
+  else if (r < .85 && dist > 400) obs.push({ x: VW + 20, y: GROUND - 80, w: 46, h: 30, k: 'drone' }); // duck under it
+  else obs.push({ x: VW + 20, y: GROUND - 80, w: 26, h: 80, k: 'tall' });
+  if (Math.random() < .6) for (let i = 0; i < 5; i++) coins.push({ x: VW + 200 + i * 40, y: GROUND - 130 - Math.sin(i / 4 * Math.PI) * 60 });
+  nextObs = Math.max(42, 110 - speed * 4) + Math.random() * 60;
+}
+function hit(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+function update() {
+  t++; speed = Math.min(18, 7 + dist / 900); dist += speed / 6; score = Math.floor(dist);
+  p.vy += ducking && p.y < GROUND ? 1.6 : .8; p.y += p.vy;
+  if (p.y >= GROUND) { p.y = GROUND; p.vy = 0; p.jumps = 0; }
+  if (--nextObs <= 0) spawn();
+  const h = ducking && p.y >= GROUND ? 30 : 56, box = { x: p.x - 16, y: p.y - h, w: 32, h };
+  for (const o of obs) { o.x -= speed; if (o.k === 'drone') o.y += Math.sin(t / 10) * 1.2; if (hit(box, o)) return crash(); }
+  for (const c of coins) { c.x -= speed; if (!c.got && Math.abs(c.x - p.x) < 26 && Math.abs(c.y - (p.y - h / 2)) < 34) { c.got = true; dist += 25; Arcade.sfx('pick'); } }
+  obs = obs.filter(o => o.x > -100); coins = coins.filter(c => c.x > -40 && !c.got);
+  if (t % 3 === 0 && p.y >= GROUND) parts.push({ x: p.x - 14, y: GROUND, vx: -speed * .3, vy: -Math.random() * 1.5, l: 16, c: '#ff2e6e' });
+}
+function crash() { state = 'over'; Arcade.sfx('boom'); Arcade.score(score); for (let i = 0; i < 40; i++) parts.push({ x: p.x, y: p.y - 30, vx: (Math.random() - .5) * 10, vy: (Math.random() - .7) * 10, l: 40, c: i % 2 ? '#2ee8f7' : '#ff2e6e' }); }
+function draw() {
+  g.setTransform(sc, 0, 0, sc, 0, 0);
+  const sky = g.createLinearGradient(0, 0, 0, GROUND); sky.addColorStop(0, '#12002a'); sky.addColorStop(1, '#3a0a4a'); g.fillStyle = sky; g.fillRect(0, 0, VW, VH);
+  const off = (dist || 0);
+  g.fillStyle = '#ff9a3c'; g.shadowBlur = 50; g.shadowColor = '#ff2e6e'; g.beginPath(); g.arc(VW * .72, 250, 110, Math.PI, 0); g.fill(); g.shadowBlur = 0;
+  g.fillStyle = '#12002a'; for (let i = 0; i < 6; i++) g.fillRect(VW * .72 - 120, 160 + i * 16 + i * i, 240, 3 + i);
+  g.fillStyle = '#1a0533'; for (let i = 0; i < 12; i++) { const x = ((i * 130 - off * .4) % (VW + 200) + VW + 200) % (VW + 200) - 100, h = 60 + (i * 53) % 110; g.fillRect(x, GROUND - h, 70, h); }
+  g.fillStyle = '#0a0216'; g.fillRect(0, GROUND, VW, VH - GROUND);
+  g.strokeStyle = '#ff2e6e'; g.lineWidth = 2; g.shadowBlur = 12; g.shadowColor = '#ff2e6e';
+  g.beginPath(); g.moveTo(0, GROUND); g.lineTo(VW, GROUND); g.stroke();
+  for (let i = 0; i < 24; i++) { const x = ((i * 80 - off * 6) % VW + VW) % VW; g.beginPath(); g.moveTo(x, GROUND); g.lineTo((x - VW / 2) * 3 + VW / 2, VH); g.stroke(); }
+  for (let j = 1; j < 6; j++) { const y = GROUND + j * j * 4; g.beginPath(); g.moveTo(0, y); g.lineTo(VW, y); g.stroke(); }
+  g.shadowBlur = 0;
+  if (coins) for (const c of coins) { g.fillStyle = '#ffcf33'; g.shadowBlur = 14; g.shadowColor = '#ffcf33'; g.beginPath(); g.ellipse(c.x, c.y, 8 * Math.abs(Math.cos(t / 8 + c.x / 50)) + 2, 10, 0, 0, 7); g.fill(); }
+  if (obs) for (const o of obs) {
+    const col = o.k === 'drone' ? '#ffcf33' : '#2ee8f7'; g.shadowBlur = 16; g.shadowColor = col; g.strokeStyle = col; g.lineWidth = 3; g.fillStyle = '#0e1430';
+    g.fillRect(o.x, o.y, o.w, o.h); g.strokeRect(o.x, o.y, o.w, o.h);
+    if (o.k === 'drone') { g.beginPath(); g.moveTo(o.x - 8, o.y); g.lineTo(o.x + o.w + 8, o.y); g.stroke(); }
+  }
+  g.shadowBlur = 0;
+  if (p && state !== 'over') {
+    const duck = ducking && p.y >= GROUND, h = duck ? 30 : 56, run = Math.sin(t / 3);
+    g.shadowBlur = 20; g.shadowColor = '#ff2e6e'; g.fillStyle = '#ff2e6e';
+    g.beginPath(); g.roundRect(p.x - 16, p.y - h, 32, h - 10, 8); g.fill();
+    g.fillStyle = '#ffe0f0'; g.fillRect(p.x + 2, p.y - h + 8, 12, 6);
+    g.strokeStyle = '#ff2e6e'; g.lineWidth = 6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(p.x - 6, p.y - 10); g.lineTo(p.x - 6 + run * 10, p.y); g.moveTo(p.x + 6, p.y - 10); g.lineTo(p.x + 6 - run * 10, p.y); g.stroke(); g.shadowBlur = 0;
+  }
+  if (parts) parts = parts.filter(q => { q.x += q.vx; q.y += q.vy; q.vy += .2; g.globalAlpha = q.l / 40; g.fillStyle = q.c; g.fillRect(q.x, q.y, 4, 4); g.globalAlpha = 1; return --q.l > 0; });
+  g.fillStyle = '#fff'; g.font = '800 22px ui-monospace,monospace'; g.textAlign = 'right'; g.fillText(`${String(score || 0).padStart(5, '0')}   HI ${String(Math.max(best, score || 0)).padStart(5, '0')}`, VW - 24, 40);
+  if (state !== 'play') {
+    g.fillStyle = 'rgba(7,2,15,.7)'; g.fillRect(0, 0, VW, VH); g.textAlign = 'center';
+    g.shadowBlur = 24; g.shadowColor = '#ff2e6e'; g.fillStyle = '#ff2e6e'; g.font = '900 72px system-ui'; g.fillText(state === 'over' ? 'WIPEOUT' : 'NEON RUNNER', VW / 2, 200); g.shadowBlur = 0;
+    g.fillStyle = '#fff'; g.font = '600 22px system-ui'; if (state === 'over') g.fillText(`Distance ${score}`, VW / 2, 250);
+    g.fillText('Space / tap to run', VW / 2, 300); g.fillStyle = '#c9a'; g.font = '500 16px system-ui'; g.fillText('Space/↑ jump (twice to double-jump)  ·  ↓ duck  ·  grab coins for a boost', VW / 2, 340);
+  }
+}
+function loop() { if (state === 'play') update(); draw(); requestAnimationFrame(loop); }
+addEventListener('keydown', e => {
+  if ([' ', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
+  if (state !== 'play') { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) reset(); return; }
+  if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && !e.repeat) jump();
+  if (e.key === 'ArrowDown' || e.key === 's') ducking = true;
+});
+addEventListener('keyup', e => { if (e.key === 'ArrowDown' || e.key === 's') ducking = false; });
+let ty = 0;
+cv.addEventListener('touchstart', e => { e.preventDefault(); ty = e.touches[0].clientY; if (state !== 'play') reset(); else jump(); }, { passive: false });
+cv.addEventListener('touchmove', e => { if (e.touches[0].clientY - ty > 30) ducking = true; }, { passive: true });
+cv.addEventListener('touchend', () => ducking = false);
+cv.addEventListener('mousedown', () => (state !== 'play' ? reset() : jump()));
+loop();
+</script></body></html>

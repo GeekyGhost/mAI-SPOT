@@ -1,0 +1,30 @@
+/* Digital Forge palette. Mirrors :root in src/styles.css — keep the two in step. */
+:root {
+  /* surface */
+  --black: #030608; /* App background, the deepest layer */
+  --steel: #080f12; /* Panel headers, toolbars */
+  --panel: #0d161a; /* Panel bodies */
+  --panel-light: #121e24; /* Cards, inputs, raised surfaces */
+  --border-glow: #1a323c; /* Standard borders */
+  --border-dim: #14262e; /* Internal dividers */
+  /* text */
+  --text-primary: #a1efff; /* Body text */
+  --text-bright: #e6fdff; /* Headings, emphasis */
+  --text-muted: #649fae; /* Secondary text, metadata */
+  /* brand */
+  --brand-df-orange: #f9993c; /* Logo body. Flat, never gradient. */
+  --brand-df-magenta: #ff2e6e; /* Logo wedge */
+  --brand-df-cyan: #2ee8f7; /* Logo base bar */
+  --brand-df-ink: #111111; /* The DF letterforms */
+  /* accent */
+  --accent-blue: #00f0ff; /* Structure, selection, primary action */
+  --accent-pink: #ff3385; /* Motion, transitions, video */
+  --accent-gold: #ffcf33; /* Selection, audio, warnings */
+  --accent-orange: #ff8e2b; /* Ember mid-tone, in-progress */
+  --accent-green: #39ff88; /* Health, success, ready */
+  --accent-red: #ff3c3c; /* Errors, destructive actions */
+
+  --font-display: Outfit, 'Segoe UI', system-ui, sans-serif;
+  --font-body: Inter, 'Segoe UI', system-ui, sans-serif;
+  --font-code: 'DM Mono', 'Courier New', Courier, monospace;
+}

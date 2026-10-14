@@ -1,0 +1,8 @@
+{
+ "title": "Mine Sweeper",
+ "kind": "game",
+ "genre": "Puzzle",
+ "description": "Find every mine without setting one off. Three sizes, safe first click, flags and chording.",
+ "controls": "Click dig • Right-click / long-press flag • F flag mode",
+ "thumbnail": "cover.svg"
+}

@@ -1,0 +1,8 @@
+{
+ "title": "Star Invaders",
+ "kind": "game",
+ "genre": "Shooter",
+ "description": "Hold the line against marching alien waves. Hide behind shields and snipe the bonus saucer.",
+ "controls": "←/→ move • Space fire",
+ "thumbnail": "cover.svg"
+}

@@ -1,0 +1,56 @@
+# ==============================================================================
+# mAI Spot - Git Ignore Configuration
+# ==============================================================================
+
+# --- CRITICAL: Personal Identity & Databases (NEVER share or commit) ---
+data/
+*.identity.json
+identity.json
+social.json
+db.json
+
+# --- Personal Media & Uploads (Keeps personal files off GitHub) ---
+content/audio/*
+!content/audio/.gitkeep
+content/video/*
+!content/video/.gitkeep
+content/pictures/*
+!content/pictures/.gitkeep
+content/books/*
+!content/books/.gitkeep
+content/thumbnails/*
+!content/thumbnails/.gitkeep
+content/.cache/
+content/.incoming/
+content/.peers/
+
+# Note: content/apps/ is tracked so starter games and apps remain included.
+
+# --- Local Runtime & Dependencies ---
+node_modules/
+runtime/
+npm-cache/
+.npm-cache/
+
+# --- Build Outputs ---
+.next/
+.next-dev/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# --- Environment & Local Overrides ---
+.env*.local
+
+# --- OS & Editor Artifacts ---
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+.vscode/
+.idea/
+
+# --- Packaged Releases (Distributed via GitHub Releases) ---
+release/
+

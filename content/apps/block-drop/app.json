@@ -1,0 +1,8 @@
+{
+ "title": "Block Drop",
+ "kind": "game",
+ "genre": "Puzzle",
+ "description": "The classic falling-blocks puzzle: clear lines, hold a piece, watch the ghost, climb the levels.",
+ "controls": "←/→ move • ↑ rotate • ↓ soft drop • Space hard drop • C hold",
+ "thumbnail": "cover.svg"
+}
