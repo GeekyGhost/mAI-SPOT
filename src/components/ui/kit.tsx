@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, MoreVertical, ImagePlus, Loader2 } from 'lucide-react';
 import { uploadFile, gradientFor } from '@/lib/client';
@@ -91,23 +91,92 @@ export const Menu: React.FC<{
   className?: string;
 }> = ({ items, className = '' }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updatePos = useCallback(() => {
+    if (!btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const right = Math.max(8, window.innerWidth - rect.right);
+
+    // If less than 280px below and more space above, open upwards
+    if (spaceBelow < 280 && spaceAbove > spaceBelow) {
+      setPos({
+        bottom: window.innerHeight - rect.top + 4,
+        right
+      });
+    } else {
+      setPos({
+        top: rect.bottom + 4,
+        right
+      });
+    }
+  }, []);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open) {
+      updatePos();
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    const onScrollOrResize = () => setOpen(false);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+
+    document.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
+
+  const filtered = items.filter(Boolean);
+  if (!filtered.length) return null;
+
   return (
-    <div ref={ref} className={`relative ${className}`} onClick={e => e.stopPropagation()}>
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/10" aria-label="More">
+    <div className={`relative inline-block ${className}`} onClick={e => e.stopPropagation()}>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/10"
+        aria-label="More"
+      >
         <MoreVertical className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 min-w-[190px] max-h-72 overflow-y-auto bg-[#0f1a1f] border border-[#1f3a45] rounded-xl shadow-2xl py-1">
-          {items.filter(Boolean).map((it, i) =>
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: pos.top !== undefined ? `${pos.top}px` : undefined,
+            bottom: pos.bottom !== undefined ? `${pos.bottom}px` : undefined,
+            right: `${pos.right}px`,
+            maxHeight: '288px'
+          }}
+          className="z-[9999] min-w-[200px] max-w-[calc(100vw-1rem)] overflow-y-auto bg-[#0f1a1f] border border-[#1f3a45] rounded-xl shadow-2xl py-1 animate-fadeIn"
+          onClick={e => e.stopPropagation()}
+        >
+          {filtered.map((it, i) =>
             it!.label === '—' ? (
               <div key={i} className="my-1 border-t border-white/10" />
             ) : (
@@ -117,13 +186,16 @@ export const Menu: React.FC<{
                   setOpen(false);
                   it!.onClick();
                 }}
-                className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 ${it!.danger ? 'text-[#ff6b6b]' : 'text-zinc-200'}`}
+                className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors ${
+                  it!.danger ? 'text-[#ff6b6b] hover:text-[#ff4c4c]' : 'text-zinc-200'
+                }`}
               >
                 {it!.label}
               </button>
             )
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

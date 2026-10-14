@@ -597,11 +597,11 @@ const TrackTable: React.FC<{
 }> = ({ tracks, currentId, onPlay, menu, onMove, showGenre }) => {
   if (!tracks.length) return <p className="text-sm text-zinc-500 py-6">Nothing here yet.</p>;
   return (
-    <div className="rounded-2xl border border-[#1a323c] overflow-hidden">
+    <div className="rounded-2xl border border-[#1a323c]">
       {tracks.map((t, i) => (
         <div
           key={`${t.id}_${i}`}
-          className={`group grid grid-cols-[2rem_1fr_auto] md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_auto] items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5 ${
+          className={`group grid grid-cols-[2rem_1fr_auto] md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_auto] items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5 first:rounded-t-2xl last:rounded-b-2xl ${
             t.id === currentId ? 'bg-white/[0.06]' : ''
           }`}
         >
