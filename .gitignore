@@ -25,6 +25,7 @@ content/.incoming/
 content/.peers/
 
 # Note: content/apps/ is tracked so starter games and apps remain included.
+brand/
 
 # --- Local Runtime & Dependencies ---
 node_modules/

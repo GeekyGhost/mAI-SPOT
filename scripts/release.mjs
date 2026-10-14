@@ -56,7 +56,7 @@ for (const d of ['audio', 'video', 'pictures', 'books']) zip.folder(`${top}/cont
 
 // Guard rails: nothing personal may ever end up in a release.
 const names = Object.keys(zip.files);
-const leaks = names.filter(n => /\/data\/|identity\.json|social\.json|db\.json|\.peers\/|\/runtime\//.test(n));
+const leaks = names.filter(n => /\/data\/|identity\.json|social\.json|db\.json|\.peers\/|\/runtime\/|brand\//.test(n));
 if (leaks.length) {
   console.error('[release] Refusing to package personal files:', leaks);
   process.exit(1);
