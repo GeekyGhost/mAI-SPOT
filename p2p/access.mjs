@@ -9,14 +9,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { CONTENT_DIR } from './store.mjs';
+import { listModels } from './models.mjs';
 
-export const KINDS = ['station', 'playlist', 'channel', 'collection', 'album', 'app', 'book', 'reel'];
+export const KINDS = ['station', 'playlist', 'channel', 'collection', 'album', 'app', 'book', 'model', 'reel'];
 export const PICTURES_DIR = path.join(CONTENT_DIR, 'pictures');
 export const LOOSE_ALBUM = '_loose';
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.bmp']);
 
 /** Everything, as a new friend's starting point (the user narrows it down per friend). */
-export const EVERYTHING = ['station:*', 'playlist:*', 'channel:*', 'collection:*', 'album:*', 'app:*', 'book:*', 'reel'];
+export const EVERYTHING = ['station:*', 'playlist:*', 'channel:*', 'collection:*', 'album:*', 'app:*', 'book:*', 'model:*', 'reel'];
 
 export function isResourceId(id) {
   if (id === 'reel') return true;
@@ -160,6 +161,7 @@ export function shareables(db) {
       cover: b.cover || '',
       group: b.kind === 'comic' && b.series ? b.series : undefined
     })),
+    model: listModels().map(m => ({ id: m.id, name: m.title, note: `${m.formats.join(', ')} · ${m.fileCount} files`, cover: m.coverAsset?.kind === 'image' ? `${m.apiBase}/asset/${m.coverAsset.id}` : '' })),
     reel: [{ id: 'reel', name: 'Profile picture reel', note: `${(db.profile?.pictureReel || []).length} pictures`, cover: db.profile?.pictureReel?.[0] || '' }]
   };
 }
@@ -170,7 +172,7 @@ export const pictureUrl = (album, file, thumb = false) =>
 /** A one-line summary of a grant set, e.g. "3 stations · all videos · 1 album". */
 export function summarize(grants) {
   const now = Date.now();
-  const label = { station: 'station', playlist: 'playlist', channel: 'channel', collection: 'collection', album: 'album', app: 'game/app', book: 'book' };
+  const label = { station: 'station', playlist: 'playlist', channel: 'channel', collection: 'collection', album: 'album', app: 'game/app', book: 'book', model: 'model package' };
   const parts = [];
   for (const k of Object.keys(label)) {
     if (live(grants?.[`${k}:*`], now)) parts.push(`all ${label[k]}s`);

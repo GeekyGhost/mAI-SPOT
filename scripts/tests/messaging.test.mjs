@@ -5,6 +5,7 @@ import test from 'node:test';
 import { Peer } from '../../p2p/protocol.mjs';
 import { SpotNode } from '../../p2p/node.mjs';
 import { createP2PHandler } from '../../p2p/http.mjs';
+import { communication } from '../../p2p/communication.mjs';
 
 // Do not construct a real SpotNode: these tests never load identities, save user data,
 // open sockets, discover peers, or send anything to the user's friends.
@@ -13,6 +14,8 @@ function node(key, friendKey) {
   n.key = key;
   n.s = { friends: { [friendKey]: { key: friendKey, name: 'Test friend' } }, messages: {}, unread: {} };
   n.peers = new Map(); n.dmDeliveries = new Map();
+  n.calls = new Map(); n.thumbCache = new Map(); n.presenceSig = new Map();
+  n.summaryFor = key => ({ name: 'Test friend', communication: communication(n.s.friends[key]?.communication) });
   return n;
 }
 
@@ -143,4 +146,66 @@ test('messaging rejects non-friends, empty text, invalid IDs and cross-site requ
   const blocked = await request(p.a, '/api/p2p/messages', { to: p.b.key, text: 'hello' }, { 'sec-fetch-site': 'cross-site' });
   assert.equal(blocked.status, 403);
   assert.equal(Object.keys(p.a.s.messages).length, 0);
+});
+
+test('receiver-side message permission rejects stale clients and does not queue endless retries', async t => {
+  const p = pair(); t.after(() => p.close());
+  p.b.s.friends[p.a.key].communication = { messages: false };
+  await p.a.sendDM(p.b.key, 'not permitted'); await flush();
+  const msg = p.a.s.messages[p.b.key][0];
+  assert.equal(msg.status, 'failed'); assert.match(msg.error, /direct messages/);
+  assert.equal(p.b.s.messages[p.a.key], undefined);
+  await p.a.flushOutbox(p.ap); assert.equal(msg.status, 'failed');
+});
+
+test('all three contact choices persist independently and reach the other Spot', async t => {
+  const p = pair(); t.after(() => p.close());
+  const result = await request(p.b, '/api/p2p/friends', { action: 'grants', key: p.a.key, grants: {}, communication: { messages: false, voiceCalls: true, videoCalls: false } });
+  assert.equal(result.status, 200); await flush();
+  assert.deepEqual(p.b.s.friends[p.a.key].communication, { messages: false, voiceCalls: true, videoCalls: false });
+  assert.deepEqual(p.a.s.friends[p.b.key].theirCommunication, { messages: false, voiceCalls: true, videoCalls: false });
+  await assert.rejects(p.a.sendDM(p.b.key, 'blocked locally'), /direct messages/);
+  assert.equal(p.a.s.messages[p.b.key], undefined);
+  assert.equal((await request(p.a, '/api/p2p/call', { to: p.b.key, callId: 'voice', kind: 'offer', data: { video: false } })).status, 200);
+  assert.equal((await request(p.a, '/api/p2p/call', { to: p.b.key, callId: 'video', kind: 'offer', data: { video: true } })).status, 400);
+});
+
+test('receiver enforces voice and video permissions independently, including a false video flag', async t => {
+  const p = pair(); t.after(() => p.close());
+  const events = []; p.b.on('ui', ev => { if (ev.type === 'call') events.push(ev); });
+  p.b.s.friends[p.a.key].communication = { messages: true, voiceCalls: false, videoCalls: true };
+  p.a.callSignal(p.b.key, { callId: 'voice-denied', kind: 'offer', data: { video: false } });
+  p.a.callSignal(p.b.key, { callId: 'video-allowed', kind: 'offer', data: { video: true } });
+  await flush(); assert.deepEqual(events.map(ev => ev.callId), ['video-allowed']);
+  p.b.s.friends[p.a.key].communication = { messages: true, voiceCalls: true, videoCalls: false };
+  p.a.callSignal(p.b.key, { callId: 'hidden-video-denied', kind: 'offer', data: { video: false, sdp: { sdp: 'v=0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\n' } } });
+  p.a.callSignal(p.b.key, { callId: 'voice-allowed', kind: 'offer', data: { video: false } });
+  await flush(); assert.deepEqual(events.map(ev => ev.callId), ['video-allowed', 'voice-allowed']);
+  await p.a.sendDM(p.b.key, 'messages still work'); await flush();
+  assert.equal(p.b.s.messages[p.a.key][0].text, 'messages still work');
+});
+
+test('revoking a call type ends only existing incoming calls of that type', async t => {
+  const p = pair(); t.after(() => p.close());
+  p.a.callSignal(p.b.key, { callId: 'incoming-video', kind: 'offer', data: { video: true } });
+  p.a.callSignal(p.b.key, { callId: 'incoming-voice', kind: 'offer', data: { video: false } }); await flush();
+  const ended = []; p.b.on('ui', ev => { if (ev.type === 'call' && ev.kind === 'bye') ended.push(ev.callId); });
+  p.b.setGrants(p.a.key, {}, { videoCalls: false }); await flush();
+  assert.deepEqual(ended, ['incoming-video']); assert.ok(p.b.calls.has(`${p.a.key}:incoming-voice`));
+});
+
+test('permission input validation leaves existing grants and contact settings intact', async t => {
+  const p = pair(); t.after(() => p.close()); p.b.s.friends[p.a.key].grants = { reel: {} };
+  const bad = await request(p.b, '/api/p2p/friends', { action: 'grants', key: p.a.key, grants: {}, communication: { messages: 'false' } });
+  assert.equal(bad.status, 400); assert.deepEqual(p.b.s.friends[p.a.key].grants, { reel: {} });
+  assert.equal(p.b.s.friends[p.a.key].communication, undefined);
+});
+
+test('failed messages cannot become read through a later message receipt', async t => {
+  const p = pair(); t.after(() => p.close());
+  p.b.s.friends[p.a.key].communication = { messages: false };
+  await p.a.sendDM(p.b.key, 'denied'); await flush();
+  p.b.s.friends[p.a.key].communication = { messages: true };
+  await p.a.sendDM(p.b.key, 'allowed'); await flush(); p.b.markRead(p.a.key); await flush();
+  assert.equal(p.a.s.messages[p.b.key][0].status, 'failed'); assert.equal(p.a.s.messages[p.b.key][1].status, 'read');
 });

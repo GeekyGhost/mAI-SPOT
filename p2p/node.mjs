@@ -15,6 +15,8 @@ import { Peer } from './protocol.mjs';
 import { loadIdentity, social, save, newId, readDb, updateDbProfile, PEER_CACHE } from './store.mjs';
 import { profileSummary, catalog, visibleThumbs, resolveFile, resolveThumb, computeLive, mimeFor, fileStat, thumbName, nowPlayingPosition } from './catalog.mjs';
 import { cleanGrants, covers, sweep, trackAllowed, videoAllowed, summarize, EVERYTHING } from './access.mjs';
+import { communication, contactUpdate, callKind, contactError } from './communication.mjs';
+import { modelRequestAllowed } from './models.mjs';
 
 const MAX_TEXT = 4000;
 const MAX_POST = 10000;
@@ -42,6 +44,7 @@ export class SpotNode extends EventEmitter {
     this.parties = new Map(); // watch parties: id -> party (hosted here, or joined as a guest)
     this.thumbCache = new Map(); // key -> { at, set } visible thumbnail names for that friend
     this.dmDeliveries = new Map(); // coalesce delivery attempts for the same queued message
+    this.calls = new Map(); // signaling sessions, for enforcing incoming contact choices
   }
 
   // ───────────────────────── lifecycle ─────────────────────────
@@ -168,6 +171,7 @@ export class SpotNode extends EventEmitter {
     clearTimeout(peer.strangerTimer);
     if (this.peers.get(peer.key) !== peer) return; // replaced by a newer connection
     this.peers.delete(peer.key);
+    for (const [id, session] of this.calls || []) if (session.peer === peer.key) this.calls.delete(id);
     this.presenceSig.delete(peer.key);
     this.partyPeerGone(peer.key);
     const f = this.s.friends[peer.key];
@@ -209,6 +213,7 @@ export class SpotNode extends EventEmitter {
     f.accent = /^#[0-9a-f]{3,8}$/i.test(String(prof.accent || '')) ? prof.accent : '';
     f.live = prof.live && typeof prof.live === 'object' ? { station: clip(prof.live.station, 120), track: clip(prof.live.track, 200), cover: clip(prof.live.cover, 200) } : null;
     f.theirAccess = clip(prof.access, 300);
+    f.theirCommunication = communication(prof.communication);
     f.sharing = prof.sharing && typeof prof.sharing === 'object' ? prof.sharing : {};
     if ('nowPlaying' in prof) this.applyNowPlaying(f, prof.nowPlaying);
   }
@@ -351,9 +356,10 @@ export class SpotNode extends EventEmitter {
       case 'dm_read':
         if (friend) {
           const upTo = Number(p?.upTo) || 0;
+          const ids = Array.isArray(p?.ids) ? new Set(p.ids.slice(-MAX_DM_HISTORY)) : null;
           for (const m of this.s.messages[key] || []) {
             // A read receipt can arrive before the delivery RPC response.
-            if (m.from === this.key && m.ts <= upTo) m.status = 'read';
+            if (m.from === this.key && m.status !== 'failed' && (ids ? ids.has(m.id) : m.status !== 'queued' && m.ts <= upTo)) m.status = 'read';
           }
           save();
           this.ui('dm_status', { peer: key });
@@ -392,7 +398,7 @@ export class SpotNode extends EventEmitter {
       }
       case 'call':
         if (friend && p && typeof p === 'object') {
-          this.ui('call', { from: key, name: friend.nickname || friend.name, callId: clip(p.callId, 64), kind: clip(p.kind, 16), data: p.data });
+          this.receiveCall(peer, p);
         }
         break;
     }
@@ -462,6 +468,7 @@ export class SpotNode extends EventEmitter {
     switch (m) {
       case 'dm': {
         needFriend();
+        if (!communication(this.s.friends[key].communication).messages) throw contactError('messages');
         const list = (this.s.messages[key] = this.s.messages[key] || []);
         const id = clip(p.id, 40);
         if (!list.some(x => x.id === id)) {
@@ -590,7 +597,7 @@ export class SpotNode extends EventEmitter {
   }
 
   summaryFor(key) {
-    return profileSummary(this.isFriend(key) ? this.grantsOf(key) : null, this.extraFor(key));
+    return { ...profileSummary(this.isFriend(key) ? this.grantsOf(key) : null, this.extraFor(key)), communication: communication(this.s.friends[key]?.communication) };
   }
 
   thumbsFor(key) {
@@ -650,9 +657,13 @@ export class SpotNode extends EventEmitter {
     }
   }
 
-  setGrants(key, grants) {
+  setGrants(key, grants, contact) {
     const f = this.s.friends[key];
     if (!f) throw new Error('Not a friend');
+    if (contact !== undefined) {
+      f.communication = contactUpdate(f.communication, contact);
+      this.revokeCalls(key);
+    }
     f.grants = cleanGrants(grants);
     delete f.reviewAccess;
     this.thumbCache.delete(key);
@@ -743,12 +754,14 @@ export class SpotNode extends EventEmitter {
     }
     if (parts.some(x => x === '..' || x === '.' || x === '' || x.includes('/') || x.includes('\\'))) throw new Error('Not allowed');
     const grants = this.grantsOf(key);
-    const db = readDb() || {};
     let allowed = false;
-    if (parts[1] === 'books' && parts[2]) {
+    if (parts[1] === 'models') {
+      allowed = modelRequestAllowed(grants, parts);
+    } else if (parts[1] === 'books' && parts[2]) {
       const sub = parts[3];
       allowed = covers(grants, 'book', parts[2]) && (['manifest', 'file'].includes(sub) || (sub === 'page' && /^\d+$/.test(parts[4] || '')) || (sub === 'epub' && parts.length > 4));
     } else if (parts[1] === 'apps' && parts[2] === 'run' && parts[3]) {
+      const db = readDb() || {};
       const app = (db.games || []).find(g => g.slug === parts[3]);
       allowed = !!app && !!covers(grants, 'app', app.id) && parts.length > 4;
     } else if (parts[1] === 'pictures' && (parts[2] === 'file' || parts[2] === 'thumb') && parts.length === 5) {
@@ -758,7 +771,7 @@ export class SpotNode extends EventEmitter {
     const headers = {};
     if (typeof p.range === 'string' && /^bytes=\d*-\d*$/.test(p.range)) headers.Range = p.range;
     const res = await fetch(`http://127.0.0.1:${this.localPort}/${parts.map(encodeURIComponent).join('/')}`, { headers });
-    const keep = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-security-policy', 'last-modified'];
+    const keep = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-security-policy', 'last-modified', 'content-disposition'];
     const out = {};
     for (const h of keep) {
       const v = res.headers.get(h);
@@ -902,6 +915,7 @@ export class SpotNode extends EventEmitter {
   // ───────────────────────── direct messages ─────────────────────────
   async sendDM(to, text, id) {
     if (!this.isFriend(to)) throw new Error('You can only message friends.');
+    if (!communication(this.s.friends[to].theirCommunication).messages) throw contactError('messages');
     const t = clip(text, MAX_TEXT).trim();
     if (!t) throw new Error('Empty message');
     if (id !== undefined && (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{8,40}$/.test(id))) throw new Error('Invalid message ID');
@@ -930,7 +944,13 @@ export class SpotNode extends EventEmitter {
         if (msg.status === 'queued') msg.status = 'delivered';
         save();
         this.ui('dm_status', { peer: peer.key });
-      } catch {
+      } catch (error) {
+        if (error.code === 'COMMUNICATION_DENIED') {
+          msg.status = 'failed';
+          msg.error = error.message;
+          save();
+          this.ui('dm_status', { peer: peer.key });
+        }
         /* stays queued; retried periodically and on reconnect */
       }
     }).finally(() => this.dmDeliveries.delete(key));
@@ -949,7 +969,7 @@ export class SpotNode extends EventEmitter {
     const list = this.s.messages[key] || [];
     const lastIncoming = [...list].reverse().find(m => m.from === key);
     save();
-    if (lastIncoming) this.connected(key)?.event('dm_read', { upTo: lastIncoming.ts });
+    if (lastIncoming) this.connected(key)?.event('dm_read', { upTo: lastIncoming.ts, ids: list.filter(m => m.from === key).slice(-MAX_DM_HISTORY).map(m => m.id) });
     this.ui('state');
   }
 
@@ -1233,11 +1253,46 @@ export class SpotNode extends EventEmitter {
   }
 
   // ───────────────────────── calls (WebRTC signalling relay) ─────────────────────────
+  receiveCall(peer, payload) {
+    if (typeof payload.callId !== 'string' || !payload.callId || payload.callId.length > 64 || !['offer', 'answer', 'ice', 'bye', 'reject'].includes(payload.kind)) return;
+    const key = `${peer.key}:${payload.callId}`;
+    this.calls ||= new Map();
+    if (payload.kind === 'offer') {
+      const kind = callKind(payload.data);
+      if (!communication(this.s.friends[peer.key]?.communication)[kind]) {
+        peer.event('call', { callId: payload.callId, kind: 'reject', data: { reason: contactError(kind).message } });
+        return;
+      }
+      if (!this.calls.has(key) && this.calls.size >= 128) return;
+      this.calls.set(key, { peer: peer.key, callId: payload.callId, kind, direction: 'in' });
+    }
+    if (payload.kind === 'bye' || payload.kind === 'reject') this.calls.delete(key);
+    const f = this.s.friends[peer.key];
+    this.ui('call', { from: peer.key, name: f.nickname || f.name, callId: payload.callId, kind: payload.kind, data: payload.data });
+  }
+
+  revokeCalls(key) {
+    for (const [id, session] of this.calls || []) {
+      if (session.peer !== key || session.direction !== 'in' || communication(this.s.friends[key]?.communication)[session.kind]) continue;
+      this.connected(key)?.event('call', { callId: session.callId, kind: 'bye' });
+      this.ui('call', { from: key, name: this.s.friends[key].name, callId: session.callId, kind: 'bye', data: { reason: 'You disabled this incoming call type.' } });
+      this.calls.delete(id);
+    }
+  }
+
   callSignal(to, payload) {
     if (!this.isFriend(to)) throw new Error('Not a friend');
     if (typeof payload.callId !== 'string' || !payload.callId || payload.callId.length > 64 || !['offer', 'answer', 'ice', 'bye', 'reject'].includes(payload.kind)) throw new Error('Invalid call signal');
     const peer = this.connected(to);
     if (!peer) throw new Error('They’re offline.');
+    this.calls ||= new Map();
+    if (payload.kind === 'offer') {
+      const kind = callKind(payload.data);
+      if (!communication(this.s.friends[to].theirCommunication)[kind]) throw contactError(kind);
+      if (this.calls.size >= 128) throw new Error('Too many pending calls. Try again later.');
+      this.calls.set(`${to}:${payload.callId}`, { peer: to, callId: payload.callId, kind, direction: 'out' });
+    }
+    if (payload.kind === 'bye' || payload.kind === 'reject') this.calls.delete(`${to}:${payload.callId}`);
     peer.event('call', { callId: clip(payload.callId, 64), kind: clip(payload.kind, 16), data: payload.data ?? null });
   }
 
@@ -1543,6 +1598,8 @@ export class SpotNode extends EventEmitter {
       nowPlaying: np,
       sharing: f.sharing || {},
       theirAccess: f.theirAccess || '',
+      communication: communication(f.communication),
+      theirCommunication: communication(f.theirCommunication),
       grants: f.grants || {},
       access: summarize(f.grants || {}),
       reviewAccess: !!f.reviewAccess,

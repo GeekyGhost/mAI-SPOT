@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readDb, CONTENT_DIR } from './store.mjs';
 import { covers, stationTracks, listAlbums, summarize } from './access.mjs';
+import { listModels } from './models.mjs';
 
 const THUMB_DIR = path.join(CONTENT_DIR, 'thumbnails');
 const AUDIO_DIR = path.join(CONTENT_DIR, 'audio');
@@ -152,7 +153,8 @@ export function catalog(grants, extra = {}) {
     videos: [...videos.values()].map(videoView),
     albums,
     apps,
-    books
+    books,
+    models: listModels().filter(m => covers(grants, 'model', m.id, now)).slice(0, 200).map(m => ({ ...m, until: untilOf(covers(grants, 'model', m.id, now)) }))
   };
 }
 

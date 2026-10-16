@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, MessageSquare, Phone, Video as VideoIcon, Headphones, Play, Shuffle, Music2, Film, Image as ImageIcon, Newspaper, Loader2,
-  WifiOff, Gamepad2, BookOpen, Radio, Clock, Lock, ShieldCheck, RefreshCw
+  WifiOff, Gamepad2, BookOpen, Radio, Clock, Lock, ShieldCheck, RefreshCw, Boxes
 } from 'lucide-react';
 import type { Video, Book, Game } from '@/lib/types';
 import { timeAgo, untilLabel } from '@/lib/p2pTypes';
@@ -19,6 +19,8 @@ import { Reader, peerProgressKey } from '@/components/library/Reader';
 import { Lightbox, type LightboxPicture } from '@/components/gallery/Lightbox';
 import { AlbumCard, Until } from '@/components/gallery/AlbumCard';
 import { Art, Btn, Empty } from '@/components/ui/kit';
+import { ModelShelf } from '@/components/models/ModelsTab';
+import type { ModelSummary } from '@/lib/modelTypes';
 
 type PeerTrack = NowTrack & { album?: string; genre?: string };
 interface PeerCatalog {
@@ -32,9 +34,10 @@ interface PeerCatalog {
   albums: { id: string; name: string; until?: number; pictures: { name: string; url: string; thumb: string }[] }[];
   apps: (Game & { runUrl: string; until?: number })[];
   books: (Book & { base: string; until?: number })[];
+  models?: ModelSummary[];
 }
 
-type Tab = 'posts' | 'radio' | 'videos' | 'pictures' | 'games' | 'books';
+type Tab = 'posts' | 'radio' | 'videos' | 'pictures' | 'games' | 'books' | 'models';
 
 const Row: React.FC<{ title: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }> = ({ title, right, children }) => (
   <section className="space-y-3">
@@ -82,7 +85,7 @@ export const FriendSpot: React.FC = () => {
 
   useEffect(() => {
     if (!key) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !watch && !album && !game && !book && p2p.setVisit(null);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !watch && !album && !game && !book && !document.querySelector('[role="dialog"][aria-modal="true"]') && p2p.setVisit(null);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [key, watch, album, game, book, p2p]);
@@ -109,7 +112,8 @@ export const FriendSpot: React.FC = () => {
     videos: !!(cat && cat.videos.length),
     pictures: !!(cat && cat.albums.length) || reel.length > 0,
     games: !!(cat && cat.apps.length),
-    books: !!(cat && cat.books.length)
+    books: !!(cat && cat.books.length),
+    models: !!cat?.models?.length
   };
   const tabs: [Tab, string, React.ComponentType<{ className?: string }>, boolean][] = [
     ['posts', 'Posts', Newspaper, true],
@@ -117,13 +121,14 @@ export const FriendSpot: React.FC = () => {
     ['videos', 'Videos', Film, has.videos],
     ['pictures', 'Pictures', ImageIcon, has.pictures],
     ['games', 'Games & apps', Gamepad2, has.games],
-    ['books', 'Books', BookOpen, has.books]
+    ['books', 'Books', BookOpen, has.books],
+    ['models', 'Models', Boxes, has.models]
   ];
   const label = `${f.name}’s Spot`;
   const tunedLive = audio.mode === 'live' && audio.liveUrl === `/api/p2p/peer/${key}/live`;
   const along = p2p.alongWith === key;
   const accent = f.accent || 'var(--spot-accent)';
-  const nothingShared = !!cat && !has.radio && !has.videos && !has.pictures && !has.games && !has.books;
+  const nothingShared = !!cat && !has.radio && !has.videos && !has.pictures && !has.games && !has.books && !has.models;
 
   return createPortal(
     <div className="fixed inset-0 z-[44] bg-[#030608]/[0.97] backdrop-blur overflow-y-auto animate-fadeIn">
@@ -161,14 +166,14 @@ export const FriendSpot: React.FC = () => {
               <Btn variant="primary" onClick={() => p2p.openChat(f.key)}>
                 <MessageSquare className="w-4 h-4" /> Message
               </Btn>
-              <Btn disabled={!f.online} onClick={() => p2p.startCall(f.key, false)}>
+              <Btn disabled={!f.online || f.theirCommunication?.voiceCalls === false} onClick={() => p2p.startCall(f.key, false)}>
                 <Phone className="w-4 h-4" /> Call
               </Btn>
-              <Btn disabled={!f.online} onClick={() => p2p.startCall(f.key, true)}>
+              <Btn disabled={!f.online || f.theirCommunication?.videoCalls === false} onClick={() => p2p.startCall(f.key, true)}>
                 <VideoIcon className="w-4 h-4" /> Video call
               </Btn>
-              <Btn onClick={() => p2p.setDialog({ type: 'access', key: f.key })} title="What they can see of your Spot">
-                <ShieldCheck className="w-4 h-4" /> What they see
+              <Btn onClick={() => p2p.setDialog({ type: 'access', key: f.key })} title="Messages, calls and sharing permissions">
+                <ShieldCheck className="w-4 h-4" /> Permissions
               </Btn>
             </div>
           </div>
@@ -233,6 +238,7 @@ export const FriendSpot: React.FC = () => {
         </div>
 
         <div className="mt-6 space-y-10">
+          {tab === 'models' && <ModelShelf key={key} models={cat?.models || []} />}
           {tab === 'posts' && (
             <>
               {nothingShared && (

@@ -18,6 +18,7 @@ import os from 'node:os';
 import next from 'next';
 import { SpotNode } from './p2p/node.mjs';
 import { createP2PHandler } from './p2p/http.mjs';
+import { childOperation } from './scripts/lib/operation-lock.mjs';
 
 const dev = process.argv.includes('--dev');
 if (dev) process.env.MAISPOT_DEV = '1';
@@ -25,6 +26,8 @@ const port = parseInt(process.env.PORT || '8088', 10);
 const lanEnabled = process.env.MAISPOT_LAN !== '0';
 const bindHost = lanEnabled ? '0.0.0.0' : '127.0.0.1';
 const root = process.cwd();
+const releaseLock = childOperation(root, 'running the Spot');
+process.once('exit', releaseLock);
 const dbPath = path.join(root, 'data', 'db.json');
 
 const remoteOnly = process.env.MAISPOT_REMOTE_ONLY === '1';

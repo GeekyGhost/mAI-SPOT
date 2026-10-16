@@ -52,18 +52,10 @@ set MODE=
 if /i "%~1"=="dev" set MODE=--dev
 if not defined PORT set PORT=8088
 
-node scripts\preflight.mjs %MODE%
-if errorlevel 1 (
-    pause
-    exit /b 1
-)
-
 echo.
-echo   Your Spot opens at http://localhost:%PORT% in a few seconds.
+echo   Your Spot opens at http://localhost:%PORT% after setup finishes.
 echo   Keep this window open: your Spot (and your radio) runs while it's open.
 echo   Press CTRL+C here to stop.
 echo.
-start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 5; Start-Process 'http://localhost:%PORT%'"
-
-node server.mjs %MODE%
+node scripts\run.mjs --open %MODE%
 pause

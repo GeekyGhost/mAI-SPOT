@@ -12,6 +12,7 @@ export const THUMB_DIR = path.join(CONTENT_DIR, 'thumbnails');
 export const BOOKS_DIR = path.join(CONTENT_DIR, 'books');
 export const APPS_DIR = path.join(CONTENT_DIR, 'apps');
 export const PICTURES_DIR = path.join(CONTENT_DIR, 'pictures');
+export const MODELS_DIR = path.join(CONTENT_DIR, 'models');
 export const PICTURE_THUMBS_DIR = path.join(PICTURES_DIR, '.thumbs');
 export const CACHE_DIR = path.join(CONTENT_DIR, '.cache');
 export const INCOMING_DIR = path.join(CONTENT_DIR, '.incoming');
@@ -22,7 +23,7 @@ export const IMAGE_EXT = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.av
 export const BOOK_EXT = ['.epub', '.pdf', '.cbz', '.cbr', '.txt', '.md'];
 
 export function ensureDirs() {
-  for (const d of [DATA_DIR, CONTENT_DIR, AUDIO_DIR, VIDEO_DIR, THUMB_DIR, BOOKS_DIR, APPS_DIR, PICTURES_DIR, CACHE_DIR, INCOMING_DIR]) {
+  for (const d of [DATA_DIR, CONTENT_DIR, AUDIO_DIR, VIDEO_DIR, THUMB_DIR, BOOKS_DIR, APPS_DIR, PICTURES_DIR, MODELS_DIR, CACHE_DIR, INCOMING_DIR]) {
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
   }
 }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, MicOff, ChevronLeft, Phone, Video as VideoIcon, Users, Plus, Send, Eye, LogOut, Clock, Check, CheckCheck, X, Minus } from 'lucide-react';
+import { Mic, MicOff, ChevronLeft, Phone, Video as VideoIcon, Users, Plus, Send, Eye, LogOut, Clock, Check, CheckCheck, X, Minus, ShieldCheck } from 'lucide-react';
 import type { DirectMessage, GroupDetail } from '@/lib/p2pTypes';
 import { timeAgo } from '@/lib/p2pTypes';
 import { api } from '@/lib/client';
@@ -142,7 +142,9 @@ const FriendList: React.FC = () => {
 };
 
 const Ticks: React.FC<{ m: DirectMessage }> = ({ m }) =>
-  m.status === 'queued' ? (
+  m.status === 'failed' ? (
+    <span title={m.error || 'Not delivered'} className="text-rose-300"><X className="w-3 h-3 inline" /> Not delivered</span>
+  ) : m.status === 'queued' ? (
     <span title="Waiting in your outbox: delivers when they come online">
       <Clock className="w-3 h-3 inline" />
     </span>
@@ -188,12 +190,12 @@ const DMView: React.FC<{ peer: string; onBack: () => void }> = ({ peer, onBack }
     if (f?.unread || lastIncoming) api('/api/p2p/messages', { method: 'POST', json: { action: 'read', peer } }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [peer, lastIncoming]);
-  useEffect(() => endRef.current?.scrollIntoView(), [msgs.length]);
+  useEffect(() => { endRef.current?.scrollIntoView(); }, [msgs.length]);
 
   if (!f) return <div className="p-4 text-sm text-zinc-500">Not a friend anymore.</div>;
 
   const send = async () => {
-    if (!text.trim() || sendingRef.current) return;
+    if (!text.trim() || sendingRef.current || f.theirCommunication?.messages === false) return;
     const submitted = text;
     if (draftId.current?.text !== submitted) draftId.current = { text: submitted, id: crypto.randomUUID() };
     sendingRef.current = true;
@@ -227,14 +229,18 @@ const DMView: React.FC<{ peer: string; onBack: () => void }> = ({ peer, onBack }
         <button onClick={() => p2p.setVisit(f.key)} className="p-1.5 text-zinc-400 hover:text-white" title="Visit their Spot">
           <Eye className="w-4 h-4" />
         </button>
-        <button disabled={!f.online} onClick={() => p2p.startCall(f.key, false)} className="p-1.5 text-zinc-400 hover:text-white disabled:opacity-30" title="Voice call">
+        <button onClick={() => p2p.setDialog({ type: 'access', key: f.key })} className="p-1.5 text-zinc-400 hover:text-white" title="Message and call permissions">
+          <ShieldCheck className="w-4 h-4" />
+        </button>
+        <button disabled={!f.online || f.theirCommunication?.voiceCalls === false} onClick={() => p2p.startCall(f.key, false)} className="p-1.5 text-zinc-400 hover:text-white disabled:opacity-30" title={f.theirCommunication?.voiceCalls === false ? 'This friend has disabled incoming voice calls from you' : 'Voice call'}>
           <Phone className="w-4 h-4" />
         </button>
-        <button disabled={!f.online} onClick={() => p2p.startCall(f.key, true)} className="p-1.5 text-zinc-400 hover:text-white disabled:opacity-30" title="Video call">
+        <button disabled={!f.online || f.theirCommunication?.videoCalls === false} onClick={() => p2p.startCall(f.key, true)} className="p-1.5 text-zinc-400 hover:text-white disabled:opacity-30" title={f.theirCommunication?.videoCalls === false ? 'This friend has disabled incoming video calls from you' : 'Video call'}>
           <VideoIcon className="w-4 h-4" />
         </button>
       </div>
       {!f.online && <div className="px-3 py-1.5 text-[11px] bg-amber-500/10 text-amber-300 border-b border-amber-500/20">{f.name} is offline. Messages wait in your outbox (⏱) and deliver automatically when they’re back.</div>}
+      {f.theirCommunication?.messages === false && <div className="px-3 py-2 text-xs text-amber-300">{f.name} has disabled incoming direct messages from you.</div>}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {msgs.map(m => {
           const mine = m.from !== peer;
@@ -261,8 +267,8 @@ const DMView: React.FC<{ peer: string; onBack: () => void }> = ({ peer, onBack }
           send();
         }}
       >
-        <input value={text} onChange={e => setText(e.target.value)} placeholder={`Message ${f.name}`} className="flex-1 bg-black/40 border border-[#1f3a45] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-400" maxLength={4000} autoFocus />
-        <button className="p-2 rounded-lg bg-emerald-500 text-black disabled:opacity-40" disabled={sending || !text.trim()} title={sending ? 'Sending…' : 'Send'}>
+        <input value={text} disabled={f.theirCommunication?.messages === false} onChange={e => setText(e.target.value)} placeholder={`Message ${f.name}`} className="flex-1 bg-black/40 border border-[#1f3a45] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-400 disabled:opacity-40" maxLength={4000} autoFocus />
+        <button className="p-2 rounded-lg bg-emerald-500 text-black disabled:opacity-40" disabled={sending || !text.trim() || f.theirCommunication?.messages === false} title={sending ? 'Sending…' : 'Send'}>
           <Send className="w-4 h-4" />
         </button>
       </form>
@@ -353,7 +359,7 @@ const GroupView: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack })
   useEffect(() => {
     if (summary?.unread) api('/api/p2p/groups', { method: 'POST', json: { action: 'read', id } }).catch(() => {});
   }, [id, summary?.unread]);
-  useEffect(() => endRef.current?.scrollIntoView(), [g?.messages.length]);
+  useEffect(() => { endRef.current?.scrollIntoView(); }, [g?.messages.length]);
 
   if (!summary) return <div className="p-4 text-sm text-zinc-500">You’re not in this group anymore. <button className="underline" onClick={onBack}>Back</button></div>;
 

@@ -143,8 +143,12 @@ export function P2PProvider({ children, onProfileChanged }: { children: React.Re
   useEffect(() => () => calls.dispose(), [calls]);
   const startCall = useCallback((key: string, video: boolean) => {
     const friend = state?.friends.find(f => f.key === key);
+    if (friend?.theirCommunication?.[video ? 'videoCalls' : 'voiceCalls'] === false) {
+      toast({ title: 'Call unavailable', body: `${friend.name} has disabled incoming ${video ? 'video' : 'voice'} calls from you.` });
+      return;
+    }
     void calls.start(key, friend?.nickname || friend?.name || 'Friend', video);
-  }, [calls, state]);
+  }, [calls, state, toast]);
   const acceptCall = useCallback((video: boolean) => { void calls.accept(video); }, [calls]);
   const declineCall = useCallback(() => calls.decline(), [calls]);
   const hangUp = useCallback(() => calls.hangUp(), [calls]);

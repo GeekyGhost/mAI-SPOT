@@ -29,10 +29,8 @@ echo "[setup] Using Node.js $(node -v)"
 MODE=""
 [ "$1" = "dev" ] && MODE="--dev"
 export PORT="${PORT:-8088}"
-node scripts/preflight.mjs $MODE
 
 echo
 echo "  Your Spot: http://localhost:$PORT   (keep this running; Ctrl+C to stop)"
 echo
-( sleep 5; (command -v open >/dev/null && open "http://localhost:$PORT") || (command -v xdg-open >/dev/null && xdg-open "http://localhost:$PORT") || true ) >/dev/null 2>&1 &
-exec node server.mjs $MODE
+exec node scripts/run.mjs --open $MODE

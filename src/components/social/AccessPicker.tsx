@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { RadioTower, ListMusic, Tv, Layers, Images, Gamepad2, BookOpen, GalleryHorizontal, ChevronDown, Clock, Loader2 } from 'lucide-react';
+import { RadioTower, ListMusic, Tv, Layers, Images, Gamepad2, BookOpen, GalleryHorizontal, ChevronDown, Clock, Loader2, Boxes } from 'lucide-react';
 import type { Grants, ShareKind, Shareables } from '@/lib/p2pTypes';
 import { SHARE_KINDS, untilLabel } from '@/lib/p2pTypes';
 import { api } from '@/lib/client';
@@ -15,6 +15,7 @@ export const KIND_ICON: Record<ShareKind, React.ComponentType<{ className?: stri
   album: Images,
   app: Gamepad2,
   book: BookOpen,
+  model: Boxes,
   reel: GalleryHorizontal
 };
 
@@ -27,7 +28,7 @@ export const DURATIONS: { label: string; ms: number }[] = [
 ];
 
 const grantFor = (ms: number) => (ms ? { until: Date.now() + ms } : {});
-export const EVERYTHING = ['station:*', 'playlist:*', 'channel:*', 'collection:*', 'album:*', 'app:*', 'book:*', 'reel'];
+export const EVERYTHING = ['station:*', 'playlist:*', 'channel:*', 'collection:*', 'album:*', 'app:*', 'book:*', 'model:*', 'reel'];
 export const toGrants = (ids: string[]): Grants => Object.fromEntries(ids.map(id => [id, {}]));
 
 let cache: { at: number; items: Shareables } | null = null;
@@ -40,7 +41,7 @@ export function useShareables() {
         cache = { at: Date.now(), items: d.items };
         setItems(d.items);
       })
-      .catch(() => setItems({ station: [], playlist: [], channel: [], collection: [], album: [], app: [], book: [], reel: [] }));
+      .catch(() => setItems({ station: [], playlist: [], channel: [], collection: [], album: [], app: [], book: [], model: [], reel: [] }));
   }, []);
   return items;
 }

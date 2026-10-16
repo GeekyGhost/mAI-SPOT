@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Copy, Check, Link2, ShieldCheck, Trash2, UserPlus, Clock, Ticket, Sparkles, Loader2, Share2 } from 'lucide-react';
-import type { Grants, Invite } from '@/lib/p2pTypes';
+import type { Grants, Invite, CommunicationPermissions } from '@/lib/p2pTypes';
 import { timeAgo, untilLabel } from '@/lib/p2pTypes';
 import { api } from '@/lib/client';
 import { Modal, Btn, inputCls, Field } from '@/components/ui/kit';
@@ -31,7 +31,7 @@ export const SocialDialogs: React.FC = () => {
     case 'review':
       return <ReviewRequestDialog onClose={close} k={dialog.key} />;
     case 'access':
-      return <FriendAccessDialog onClose={close} k={dialog.key} welcome={dialog.welcome} />;
+      return <FriendAccessDialog key={dialog.key} onClose={close} k={dialog.key} welcome={dialog.welcome} />;
     case 'privacy':
       return <PrivacyDialog onClose={close} />;
     case 'share':
@@ -323,14 +323,19 @@ const FriendAccessDialog: React.FC<{ onClose: () => void; k: string; welcome?: b
   const { state, refresh } = useP2P();
   const f = state?.friends.find(x => x.key === k);
   const [grants, setGrants] = useState<Grants>(() => f?.grants || {});
+  const [contact, setContact] = useState<CommunicationPermissions>(() => f?.communication || { messages: true, voiceCalls: true, videoCalls: true });
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   if (!f) return null;
   const save = async () => {
     setBusy(true);
     try {
-      await api('/api/p2p/friends', { method: 'POST', json: { action: 'grants', key: k, grants } });
+      setErr('');
+      await api('/api/p2p/friends', { method: 'POST', json: { action: 'grants', key: k, grants, communication: contact } });
       refresh();
       onClose();
+    } catch (error) {
+      setErr((error as Error).message);
     } finally {
       setBusy(false);
     }
@@ -340,7 +345,7 @@ const FriendAccessDialog: React.FC<{ onClose: () => void; k: string; welcome?: b
       open
       onClose={onClose}
       wide
-      title={<span className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[var(--spot-accent)]" /> What {f.name} can see</span>}
+      title={<span className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[var(--spot-accent)]" /> Permissions for {f.name}</span>}
       footer={
         <>
           <Btn onClick={onClose}>{welcome ? 'Keep as is' : 'Cancel'}</Btn>
@@ -362,7 +367,19 @@ const FriendAccessDialog: React.FC<{ onClose: () => void; k: string; welcome?: b
           Changes reach {f.name} instantly{f.online ? '' : ' (when they’re next online)'}. Anything you untick stops working for them right away.
         </div>
       </div>
+      <div className="rounded-xl border border-white/10 p-3 space-y-3">
+        <div className="text-sm font-bold text-white">Allow {f.name} to contact you</div>
+        {([['messages', 'Direct messages'], ['voiceCalls', 'Voice calls'], ['videoCalls', 'Video calls']] as const).map(([key, label]) => (
+          <label key={key} className="flex items-center gap-3 text-sm text-zinc-200 cursor-pointer">
+            <input type="checkbox" className="w-4 h-4 accent-[var(--spot-accent)]" checked={contact[key]} onChange={event => setContact(current => ({ ...current, [key]: event.target.checked }))} />
+            {label}
+          </label>
+        ))}
+        <p className="text-xs text-zinc-400">Each choice is independent. Disabling a call type also ends an incoming call of that type.</p>
+      </div>
+      <div className="text-sm font-bold text-white">What they can see</div>
       <AccessPicker value={grants} onChange={setGrants} defaults={state?.access.defaults} />
+      {err && <p role="alert" className="text-xs text-rose-400">{err}</p>}
     </Modal>
   );
 };

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2 — 2026-10-16
+
+- Launcher and updater operation locks now publish complete records atomically and replace child-process metadata without truncating the active lock. Interrupted lock writes no longer leave an empty file that blocks future launches; damaged older locks show specific recovery instructions.
+- Added Models & builds: upload original ZIP packages containing STL, 3MF, CAD, modeling and animation source files; browse optional image/GIF reels, play video previews, read README/text instructions and download PDF/other documents. Optional model.json or editable details provide creator, license, printing and assembly notes.
+- Model packages use per-friend and expiring sharing permissions for details, previews and downloads. ZIP imports reject unsafe paths and symbolic links and limit archive and preview sizes. Original archives download unchanged, and updates preserve personal packages while app release ZIPs exclude them.
+- Fixed the message-view crash caused by returning the browser's scrolling Promise from a React effect. Direct and group chat effects now discard that value; regression tests cover both views.
+- Added independent per-friend checkboxes for incoming direct messages, voice calls and video calls, enforced by the receiving node. Existing friendships retain their current access by default. Disabling a call type ends an existing incoming call of that type.
+- Added Update.bat, update.sh and npm run update: verified release downloads, app backups, a pre-update data snapshot, rollback, offline ZIP support and a check-only option.
+- The updater preserves data and existing content, adds only missing starter files, and prevents concurrent setup/server/update operations. Interrupted updates require recovery before launching.
+- Release ZIPs now include a file manifest and an automatically generated SHA-256 sidecar. Packaging uses explicit starter game/artwork lists and excludes update backups and personal apps.
+
 ## 0.4.1 — 2026-10-16
 
 **Messaging and call reliability**

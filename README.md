@@ -13,6 +13,7 @@ Your own personal broadcast station and social page, in the spirit of MySpace an
 - **Arcade & Apps**: install HTML5, Canvas and WASM games (sorted by genre) and apps (sorted by category). Each one runs sandboxed.
 - **Pictures**: photo albums (each album is a folder), slideshows, and a lightbox.
 - **Library**: a built-in e-reader for EPUB, PDF, TXT and Markdown (poems welcome), and comics in CBZ/CBR.
+- **Models & builds**: share ZIP packages of STL, 3MF, CAD, Blender and animation files, with an optional image reel, GIF/video previews and printing or assembly instructions.
 - **Your Spot**: a three-column home page (you on the left; TV, music, arcade and library in the middle; friends and the feed on the right) that you can rearrange in place, restyle in one click, or redo with a preset. Plus themes, player skins and your own CSS.
 - **Friends, for real**: one-time invite links, and you choose *exactly* what each friend can see, item by item, even just for a day. Presence, DMs, group chats, a Friend Feed, voice/video calls.
 - **Together**: the **Radio Dial** (channel-surf your friends' live stations), **Listen along** (hear what a friend is playing, in sync) and **Watch parties** (watch a video together, in sync, with chat).
@@ -34,7 +35,69 @@ Set `PORT=8090` to use a different port. Set `MAISPOT_LAN=0` to make the node li
 
 **Giving mAI Spot to someone else:** run `npm run release` (or `node scripts\release.mjs`). It writes `release\mAI-Spot-<version>.zip` with the app and starter games only: never your `data\` folder, your identity, or your music/videos/pictures/books. They unzip it, run the launcher, and get a brand-new Spot of their own.
 
+### Updating your Spot
+
+Once you have a release that includes the updater, close the Spot and double-click **Update.bat** on Windows, or run **./update.sh** on macOS/Linux. Then launch the Spot normally. It checks the official GitHub release, downloads and verifies the ZIP, backs up the application and takes a pre-update snapshot of `data`, then updates application files. The next launch updates dependencies and rebuilds if needed.
+
+Your identity, friends, messages, settings, media and installed apps stay in place. Existing files under `content` are never overwritten; missing starter files may be added. Changes you made directly to application source files are kept in the app backup. The updater is for downloaded release folders; Git checkouts use Git instead.
+
+| Command | Windows | macOS / Linux |
+| --- | --- | --- |
+| Check without updating; works while the Spot runs | `Update.bat --check` | `./update.sh --check` |
+| Install the latest release; close the Spot first | `Update.bat` | `./update.sh` |
+| Restore the previous application version | `Update.bat --rollback` | `./update.sh --rollback` |
+| Install a previously downloaded ZIP | `Update.bat --file "path\mAI-Spot-<version>.zip"` | `./update.sh --file /path/mAI-Spot-<version>.zip` |
+
+For an offline update, download the matching `.zip.sha256` file beside the ZIP; dependency changes may still require internet access on the next launch. Rollback restores application files and keeps current data/content, so new messages are retained. The pre-update data snapshot is available separately in `.updates/backups` if a data migration needs manual recovery. Keep that folder private because snapshots include your identity. Backups and staging files are retained until you remove them; do not remove them while an update is pending.
+
+If your installed release has no updater (v0.4.1 and earlier), make one final manual update: close it, back up its folder, extract a newer release into a separate folder and copy your `data` and `content` folders into it before launching. Subsequent releases can use the updater. For a custom port, keep `PORT` set when updating so the running-server check uses the right port.
+
+If an older launcher left an **incomplete or damaged operation lock**, close all Spot and updater windows, then remove only `.updates/operation.json` and retry. Keep the rest of `.updates`: it contains backups and recovery records. A valid lock reporting a running operation should be left in place. New launchers publish complete lock records and replace them atomically to avoid this interrupted-write problem.
+
 ---
+
+## Models & builds
+
+Open **Models → Add model ZIP** (on a phone: **More → Models**). Choose a ZIP containing at least one model, CAD or animation file. STL, 3MF, OBJ, BLEND, FBX, GLTF/GLB, STEP, IGES, USD, SCAD and many other source formats are recognized. Textures, materials and other supporting files stay together in the original ZIP. A folder containing your project inside the ZIP works too.
+
+Only the model files are required. For a more useful package, include any of the following:
+
+```text
+Robot.zip
+  models/
+    body.3mf
+    arm.stl
+  images/                  # optional: photos or renders shown as a reel
+    01-finished.png
+    02-parts.jpg
+    turntable.gif
+  previews/                # optional: MP4 or WebM animation/assembly preview
+    assembly.mp4
+  README.md                # optional: text instructions displayed in the app
+  assembly.pdf             # optional: downloadable instructions
+  model.json               # optional: details filled in automatically
+```
+
+Images and GIFs appear in a browsable reel with an optional slideshow. Videos play on demand; MP4 and WebM are the most portable choices, while MOV/M4V playback depends on codecs. Explicit image, preview, render or video folders take priority over other artwork, and texture/material folders are excluded from the reel. README, TXT and Markdown files display as plain text. PDF, RTF, DOCX and ODT instructions are available to download. Model files are downloaded for use in your own modeling, animation or slicing software.
+
+You can enter the title, description, creator and license during upload. **View details → Edit details** also lets you add printing and assembly notes later. Alternatively, include a `model.json`:
+
+```json
+{
+  "title": "Articulated Robot",
+  "description": "A small poseable desk robot.",
+  "author": "Your name",
+  "license": "Your usage and attribution terms",
+  "printSettings": "PLA, 0.2 mm layers, 20% infill. Supports on arms only.",
+  "assembly": "Fit the arms with two M3 bolts. See assembly.pdf."
+}
+```
+
+Every field is optional. Nonempty upload fields override `model.json`. Editing details changes the listing; downloads always contain the original, unchanged ZIP.
+
+Choose **Share** on a package to select friends and an optional expiry. The **Models** category in friendship permissions can also share all model packages, including future uploads. A friend opens your Spot’s **Models** tab to see previews, read instructions and download. Both Spots need a release that supports model sharing, and the owner needs to be online. Existing friends are not automatically granted this new category; sharing settings are enforced on each preview, instruction and download request.
+
+ZIPs are limited to 256 MB, 5,000 entries and 2 GB of declared expanded data. Up to 40 previews and 20 documents are shown. Individual preview limits are 20 MB per image, 64 MB per video, 32 MB per PDF, 1 MB per text file and 20 MB per other document, with at most 256 MB of extracted previews/documents. Larger optional files remain in the downloadable ZIP. Packages live under `content/models`; the updater preserves them, and standalone app release ZIPs exclude your packages.
 
 ## 🏠 Your Spot (home page)
 
@@ -169,6 +232,8 @@ Nothing on your Spot is visible to anyone until you say so, per friend:
 - **Later:** a friend's ⋮ menu → *What they can see…*, or *Share with friends…* on any album, station, channel, collection, game or book. Changes reach them instantly.
 - **Your usual selection** (under *Privacy & sharing*) pre-fills the picker for new friends.
 - What a friend can open: stream shared music and videos, tune in to a shared station when it's on air, browse shared albums, **play shared games and apps** (still sandboxed), and **read shared books and comics**. Your node checks every single file request against their access.
+
+**Who can contact you:** open a friend's menu → **Messages, calls & sharing…**, or the shield button in their chat. Three independent checkboxes control **Direct messages**, **Voice calls** and **Video calls** from that friend. Existing friends start with all three allowed. The receiving Spot enforces these settings even if the sender uses an older app; a disallowed message is not delivered, and disabling a call type also ends an incoming call of that type. These are direct-contact controls; group conversations use group membership.
 
 ### Doing things together
 

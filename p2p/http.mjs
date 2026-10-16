@@ -121,7 +121,7 @@ export function createP2PHandler(node) {
             node.acceptRequest(b.key, b.grants);
             return ok(res);
           case 'grants':
-            return ok(res, { grants: node.setGrants(b.key, b.grants) });
+            return ok(res, { grants: node.setGrants(b.key, b.grants, b.communication) });
           case 'decline':
             node.declineRequest(b.key);
             return ok(res);
@@ -331,7 +331,8 @@ export function createP2PHandler(node) {
               }))
             })),
             apps: (r.apps || []).map(a => ({ ...a, thumbnail: t(a.thumbnail), runUrl: String(a.entryPoint || '').startsWith('/api/apps/run/') ? x(a.entryPoint.slice(1)) : x(`api/apps/run/${encodeURIComponent(a.slug)}/index.html`) })),
-            books: (r.books || []).map(b => ({ ...b, cover: t(b.cover), base: `${base}/x` }))
+            books: (r.books || []).map(b => ({ ...b, cover: t(b.cover), base: `${base}/x` })),
+            models: (r.models || []).map(m => ({ ...m, apiBase: `${base}/x/api/models/${encodeURIComponent(m.id)}` }))
           });
         }
 
@@ -341,7 +342,7 @@ export function createP2PHandler(node) {
           const range = req.headers.range;
           const r = await peer.request('get', { path: rel, range: typeof range === 'string' ? range : undefined }, { stream: true, timeout: 30000 });
           const meta = r.meta || r;
-          const headers = { ...(meta.headers || {}), 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' };
+          const headers = { ...(meta.headers || {}), 'Cache-Control': rel.startsWith('api/models/') ? 'no-store' : 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' };
           if (rel.startsWith('api/apps/run/')) {
             const slug = rel.split('/')[3];
             headers['content-security-policy'] = appCsp(`http://${req.headers.host || 'localhost'}${base}/x/api/apps/run/${slug}/`);

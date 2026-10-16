@@ -23,6 +23,7 @@ content/thumbnails/*
 content/.cache/
 content/.incoming/
 content/.peers/
+content/models/
 
 # Note: content/apps/ is tracked so starter games and apps remain included.
 brand/
@@ -36,6 +37,7 @@ npm-cache/
 # --- Build Outputs ---
 .next/
 .next-dev/
+.next-verify/
 out/
 build/
 dist/
@@ -54,4 +56,5 @@ Thumbs.db
 
 # --- Packaged Releases (Distributed via GitHub Releases) ---
 release/
+.updates/
 

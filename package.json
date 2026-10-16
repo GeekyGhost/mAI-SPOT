@@ -1,13 +1,14 @@
 {
   "name": "mai-spot",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "scripts": {
-    "dev": "node server.mjs --dev",
+    "dev": "node scripts/run.mjs --dev",
     "build": "next build",
-    "start": "node server.mjs",
+    "start": "node scripts/run.mjs",
     "lint": "tsc --noEmit",
-    "test": "node --test scripts/tests/calls.test.mjs scripts/tests/messaging.test.mjs",
+    "test": "node --test scripts/tests/calls.test.mjs scripts/tests/messaging.test.mjs scripts/tests/chat-effects.test.mjs scripts/tests/updater.test.mjs scripts/tests/models.test.mjs",
+    "update": "node scripts/update.mjs",
     "seed": "node scripts/seed.mjs",
     "release": "node scripts/release.mjs",
     "preflight": "node scripts/preflight.mjs"

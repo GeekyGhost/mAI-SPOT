@@ -1,23 +1,25 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Music, Film, Gamepad2, BookOpen, UploadCloud, Check, AlertTriangle, Loader2, X } from 'lucide-react';
+import { Music, Film, Gamepad2, BookOpen, UploadCloud, Check, AlertTriangle, Loader2, X, Boxes } from 'lucide-react';
 import type { Channel, Playlist, Collection } from '@/lib/types';
 import { GAME_GENRES, APP_CATEGORIES, BOOK_GENRES } from '@/lib/types';
 import { uploadFile, UploadKind } from '@/lib/client';
 import { Modal, Field, inputCls, Btn, ImagePicker } from '@/components/ui/kit';
 
-export type UploadTab = 'audio' | 'video' | 'app' | 'book';
+export type UploadTab = 'audio' | 'video' | 'app' | 'book' | 'model';
 
 const ACCEPT: Record<UploadTab, string> = {
   audio: '.mp3,.wav,.flac,.ogg,.oga,.opus,.m4a,.aac,.webm',
   video: '.mp4,.webm,.m4v,.mov,.mkv,.ogv',
   app: '.zip,.html,.htm',
-  book: '.epub,.pdf,.cbz,.cbr,.txt,.md'
+  book: '.epub,.pdf,.cbz,.cbr,.txt,.md',
+  model: '.zip'
 };
 
-const tabFor = (name: string): UploadTab | null => {
+const tabFor = (name: string, preferred: UploadTab): UploadTab | null => {
   const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+  if (ACCEPT[preferred].split(',').includes(ext)) return preferred;
   return (Object.keys(ACCEPT) as UploadTab[]).find(k => ACCEPT[k].split(',').includes(ext)) || null;
 };
 
@@ -72,10 +74,10 @@ export const UploadModal: React.FC<Props> = ({
     const list = [...files];
     if (!list.length) return;
     // Dropping files of another type switches to the matching tab.
-    const t = tabFor(list[0].name);
+    const t = tabFor(list[0].name, tab);
     if (t && t !== tab && items.length === 0) setTab(t);
     const target = t && items.length === 0 ? t : tab;
-    const ok = list.filter(f => tabFor(f.name) === target);
+    const ok = list.filter(f => tabFor(f.name, target) === target);
     const rejected = list.length - ok.length;
     setItems(prev => [...prev, ...ok.map(file => ({ file, progress: 0, status: 'queued' as const }))]);
     if (rejected) alert(`${rejected} file(s) skipped — they don't belong in ${target === 'app' ? 'Games & Apps' : target === 'book' ? 'Books & Comics' : target}.`);
@@ -88,7 +90,7 @@ export const UploadModal: React.FC<Props> = ({
     // Shared fields; empty ones are left to the file's own tags.
     const base: Record<string, unknown> = { ...meta };
     if (tab === 'video' && items.length > 1) delete base.title;
-    if ((tab === 'audio' || tab === 'book') && items.length > 1) delete base.title;
+    if ((tab === 'audio' || tab === 'book' || tab === 'model') && items.length > 1) delete base.title;
     for (let i = 0; i < items.length; i++) {
       if (items[i].status === 'done') continue;
       setItems(prev => prev.map((it, k) => (k === i ? { ...it, status: 'uploading', progress: 0 } : it)));
@@ -113,7 +115,8 @@ export const UploadModal: React.FC<Props> = ({
     ['audio', 'Music', Music],
     ['video', 'Video', Film],
     ['app', 'Game / App', Gamepad2],
-    ['book', 'Book / Comic', BookOpen]
+    ['book', 'Book / Comic', BookOpen],
+    ['model', 'Model ZIP', Boxes]
   ];
 
   return (
@@ -147,7 +150,7 @@ export const UploadModal: React.FC<Props> = ({
             }}
             className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs sm:text-sm font-bold disabled:cursor-not-allowed ${tab === k ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
           >
-            <Icon className="w-4 h-4" /> <span className="hidden sm:inline">{label}</span>
+            <Icon className="w-4 h-4" /> <span className="hidden sm:inline">{label}</span><span className="sr-only sm:hidden">{label}</span>
           </button>
         ))}
       </div>
@@ -173,6 +176,7 @@ export const UploadModal: React.FC<Props> = ({
           {tab === 'video' && 'MP4 and WebM play everywhere. MKV/MOV depend on the codecs. No size limit; big files stream straight to disk.'}
           {tab === 'app' && 'A .zip with an index.html inside (Phaser, Godot web, PICO-8, Construct, plain Canvas/WASM), or a single .html file.'}
           {tab === 'book' && 'EPUB, PDF, TXT and Markdown (great for poems), CBZ and CBR comics.'}
+          {tab === 'model' && 'ZIP up to 256 MB containing STL, 3MF, OBJ, Blender, CAD or animation files. Optional images/ folder becomes a reel; GIFs, videos, README and PDF instructions are included.'}
         </p>
         <input
           ref={inputRef}
@@ -217,6 +221,13 @@ export const UploadModal: React.FC<Props> = ({
 
       {/* Details (all optional). */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {tab === 'model' && <>
+          {single && <Field label="Title" hint="Blank = model.json or ZIP filename"><input className={inputCls} maxLength={160} value={meta.title || ''} onChange={e => set('title', e.target.value)} /></Field>}
+          <Field label="Creator (optional)"><input className={inputCls} maxLength={200} value={meta.author || ''} onChange={e => set('author', e.target.value)} /></Field>
+          <Field label="License (optional)"><input className={inputCls} maxLength={400} value={meta.license || ''} onChange={e => set('license', e.target.value)} placeholder="Your usage or attribution terms" /></Field>
+          <div className="sm:col-span-2"><Field label="Description (optional)"><textarea className={inputCls} rows={3} maxLength={4000} value={meta.description || ''} onChange={e => set('description', e.target.value)} /></Field></div>
+          <p className="sm:col-span-2 text-xs text-zinc-500">A ZIP with just model files is fine. You can add printing and assembly notes in View details → Edit details after uploading. Choose Share to select who can download it.</p>
+        </>}
         {tab === 'audio' && (
           <>
             {single && (

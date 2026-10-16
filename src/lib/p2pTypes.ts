@@ -4,7 +4,7 @@ export type Presence = 'online' | 'away' | 'dnd' | 'offline';
 
 /** resource id -> grant. Ids: station:<id> playlist:<id> channel:<id> collection:<id> album:<id> app:<id> book:<id> reel; "<kind>:*" = all. */
 export type Grants = Record<string, { until?: number }>;
-export type ShareKind = 'station' | 'playlist' | 'channel' | 'collection' | 'album' | 'app' | 'book' | 'reel';
+export type ShareKind = 'station' | 'playlist' | 'channel' | 'collection' | 'album' | 'app' | 'book' | 'model' | 'reel';
 export interface Shareable {
   id: string;
   name: string;
@@ -68,6 +68,8 @@ export interface Party {
   chat: PartyMessage[];
 }
 
+export interface CommunicationPermissions { messages: boolean; voiceCalls: boolean; videoCalls: boolean }
+
 export interface Friend {
   key: string;
   name: string;
@@ -88,6 +90,8 @@ export interface Friend {
   sharing: { music?: boolean; videos?: boolean; radio?: boolean; pictures?: boolean };
   /** What they let you see (their summary). */
   theirAccess: string;
+  communication: CommunicationPermissions;
+  theirCommunication: CommunicationPermissions;
   /** What you let them see. */
   grants: Grants;
   access: string;
@@ -126,6 +130,7 @@ export const SHARE_KINDS: { kind: ShareKind; label: string; plural: string }[] =
   { kind: 'album', label: 'Picture album', plural: 'Picture albums' },
   { kind: 'app', label: 'Game or app', plural: 'Games & apps' },
   { kind: 'book', label: 'Book or comic', plural: 'Books & comics' },
+  { kind: 'model', label: 'Model package', plural: 'Models & builds' },
   { kind: 'reel', label: 'Picture reel', plural: 'Profile picture reel' }
 ];
 
@@ -144,7 +149,8 @@ export interface DirectMessage {
   to: string;
   text: string;
   ts: number;
-  status: 'queued' | 'delivered' | 'read';
+  status: 'queued' | 'delivered' | 'read' | 'failed';
+  error?: string;
 }
 
 export interface GroupMessage {

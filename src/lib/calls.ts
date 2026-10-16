@@ -16,7 +16,7 @@ export interface CallSignal {
   name: string;
   callId: string;
   kind: string;
-  data?: { sdp?: RTCSessionDescriptionInit; video?: boolean } & RTCIceCandidateInit;
+  data?: { sdp?: RTCSessionDescriptionInit; video?: boolean; reason?: string } & RTCIceCandidateInit;
 }
 
 export interface CallSnapshot {
@@ -277,7 +277,7 @@ export class CallManager {
       return;
     }
     if (ev.kind === 'bye' || ev.kind === 'reject') {
-      this.finish(s, ev.kind === 'reject' ? 'They’re busy or declined.' : s.call.status === 'ringing' ? 'Missed call.' : undefined);
+      this.finish(s, ev.data?.reason || (ev.kind === 'reject' ? 'They’re busy or declined.' : s.call.status === 'ringing' ? 'Missed call.' : undefined));
       return;
     }
     s.incoming = s.incoming.then(async () => {

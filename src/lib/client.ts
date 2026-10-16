@@ -19,7 +19,7 @@ export async function api<T = any>(url: string, init?: RequestInit & { json?: un
   return data as T;
 }
 
-export type UploadKind = 'audio' | 'video' | 'thumbnail' | 'book' | 'app' | 'picture';
+export type UploadKind = 'audio' | 'video' | 'thumbnail' | 'book' | 'app' | 'picture' | 'model';
 
 /** Stream a file to the node with progress (0..1). Resolves with the server's JSON. */
 export function uploadFile(

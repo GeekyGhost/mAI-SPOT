@@ -7,9 +7,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { childOperation } from './lib/operation-lock.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
+const releaseLock = childOperation(root, 'dependency setup or build');
+process.once('exit', releaseLock);
 const dev = process.argv.includes('--dev');
 const isWin = process.platform === 'win32';
 const run = (cmd, args) => spawnSync(cmd, args, { stdio: 'inherit', shell: isWin, cwd: root }).status === 0;
@@ -25,8 +28,9 @@ if (maj < 18 || (maj === 18 && min < 18)) {
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const wanted = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
 const missing = wanted.filter(d => !fs.existsSync(path.join('node_modules', d, 'package.json')));
-if (missing.length) {
-  console.log(`[setup] Installing packages (${missing.join(', ')})...`);
+const needsInstall = path.join(root, '.updates', 'needs-install');
+if (missing.length || fs.existsSync(needsInstall)) {
+  console.log(missing.length ? `[setup] Installing packages (${missing.join(', ')})...` : '[setup] Updating dependencies for this release...');
   const npm = isWin ? 'npm.cmd' : 'npm';
   if (!run(npm, ['install', '--no-audit', '--no-fund'])) {
     // Windows sometimes refuses the write to package-lock.json (file held open by another
@@ -37,6 +41,7 @@ if (missing.length) {
       process.exit(1);
     }
   }
+  if (fs.existsSync(needsInstall)) fs.unlinkSync(needsInstall);
   // npm's download cache only speeds up reinstalls; don't leave hundreds of MB lying in runtime\.
   try {
     fs.rmSync(path.join(root, 'runtime', 'npm-cache'), { recursive: true, force: true });
@@ -46,7 +51,7 @@ if (missing.length) {
 }
 
 // 3. Content folders (a brand-new Spot starts empty; the welcome setup runs in the browser)
-for (const d of ['data', 'content/audio', 'content/video', 'content/thumbnails', 'content/books', 'content/apps', 'content/pictures']) {
+for (const d of ['data', 'content/audio', 'content/video', 'content/thumbnails', 'content/books', 'content/apps', 'content/pictures', 'content/models']) {
   fs.mkdirSync(d, { recursive: true });
 }
 if (!fs.existsSync('data/db.json')) console.log('[setup] First run: your Spot will walk you through setup in the browser.');

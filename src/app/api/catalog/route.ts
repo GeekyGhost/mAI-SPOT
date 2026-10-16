@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/db';
 import { syncLibrary } from '@/lib/media';
 import { computeLive } from '@/lib/radio';
 import { ok, fail } from '@/lib/api';
+import { listModels } from '@/lib/models';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
       watchProgress: db.watchProgress,
       games: db.games,
       books: db.books,
+      models: listModels(),
       live: computeLive(db, Date.now())
     });
   } catch (e) {

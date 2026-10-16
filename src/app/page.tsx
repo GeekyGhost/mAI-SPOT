@@ -27,6 +27,8 @@ import { CinemaTab } from '@/components/cinema/CinemaTab';
 import { useAutoPosters } from '@/components/cinema/useAutoPosters';
 import { ArcadeTab } from '@/components/arcade/ArcadeTab';
 import { LibraryTab } from '@/components/library/LibraryTab';
+import { ModelShelf } from '@/components/models/ModelsTab';
+import type { ModelSummary } from '@/lib/modelTypes';
 import { LibraryManager, type ManagerTab } from '@/components/studio/LibraryManager';
 
 import type {
@@ -49,12 +51,13 @@ interface Catalog {
   watchProgress: Record<string, WatchProgress>;
   games: Game[];
   books: Book[];
+  models: ModelSummary[];
   live: LiveBroadcast | null;
 }
 
 const EMPTY: Catalog = {
   tracks: [], videos: [], channels: [], videoGenres: [], playlists: [], stations: [], collections: [],
-  watchProgress: {}, games: [], books: [], live: null
+  watchProgress: {}, games: [], books: [], models: [], live: null
 };
 
 export default function Home() {
@@ -119,7 +122,7 @@ function SpotApp() {
       setCat({
         tracks: d.tracks, videos: d.videos, channels: d.channels, videoGenres: d.videoGenres, playlists: d.playlists,
         stations: d.stations, collections: d.collections, watchProgress: d.watchProgress, games: d.games,
-        books: d.books, live: d.live
+        books: d.books, models: d.models || [], live: d.live
       });
       setLoadError('');
     } catch (e) {
@@ -176,7 +179,7 @@ function SpotApp() {
   };
   const openUpload = (tab: UploadTab) => setUpload({ open: true, tab });
   const uploadTabForMode: Record<AppMode, UploadTab> = {
-    maispot: 'audio', feed: 'audio', radio: 'audio', cinema: 'video', gallery: 'audio', arcade: 'app', library: 'book', studio: 'audio'
+    maispot: 'audio', feed: 'audio', radio: 'audio', cinema: 'video', gallery: 'audio', arcade: 'app', library: 'book', models: 'model', studio: 'audio'
   };
   const onAdd = () => {
     // In Pictures, "Add" means add pictures to the album you're looking at.
@@ -318,6 +321,8 @@ function SpotApp() {
                 <LibraryTab books={cat.books} onRefresh={refresh} onUpload={() => openUpload('book')} onManage={() => setManager('books')} />
               </div>
             )}
+
+            {mode === 'models' && <ModelShelf models={cat.models} owner onUpload={() => openUpload('model')} onRefresh={refresh} />}
 
             {mode === 'studio' && profile && theme && (
               <div className="animate-fadeIn">

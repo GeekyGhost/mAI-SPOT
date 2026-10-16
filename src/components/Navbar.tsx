@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Radio, Film, Upload, Sliders, Wand2, Compass, Users, Gamepad2, Library, Images, UserCircle2, Ticket, ShieldCheck, ChevronDown } from 'lucide-react';
+import { Radio, Film, Upload, Sliders, Wand2, Compass, Users, Gamepad2, Library, Images, UserCircle2, Ticket, ShieldCheck, ChevronDown, Boxes } from 'lucide-react';
 import type { StationProfile } from '@/lib/types';
 import { useP2P } from '@/components/social/P2PProvider';
 import { Art } from '@/components/ui/kit';
 
-export type AppMode = 'maispot' | 'feed' | 'radio' | 'cinema' | 'gallery' | 'arcade' | 'library' | 'studio';
+export type AppMode = 'maispot' | 'feed' | 'radio' | 'cinema' | 'gallery' | 'arcade' | 'library' | 'models' | 'studio';
 
 export const MODES: { id: AppMode; label: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
   { id: 'maispot', label: 'Spot', icon: Compass, color: '#2ee8f7' },
@@ -16,6 +16,7 @@ export const MODES: { id: AppMode; label: string; icon: React.ComponentType<{ cl
   { id: 'gallery', label: 'Pictures', icon: Images, color: '#ff7ad9' },
   { id: 'arcade', label: 'Arcade', icon: Gamepad2, color: '#39ff88' },
   { id: 'library', label: 'Library', icon: Library, color: '#ffcf33' },
+  { id: 'models', label: 'Models', icon: Boxes, color: '#72d5ff' },
   { id: 'studio', label: 'Studio', icon: Sliders, color: '#a78bfa' }
 ];
 

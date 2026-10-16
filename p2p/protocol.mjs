@@ -121,7 +121,7 @@ export class Peer extends EventEmitter {
         if (!p) return;
         this.pending.delete(msg.id);
         clearTimeout(p.timer);
-        if (!msg.ok) return p.reject(new Error(msg.e || 'Request failed'));
+        if (!msg.ok) return p.reject(Object.assign(new Error(msg.e || 'Request failed'), { code: msg.code }));
         if (msg.sid) {
           // Register the sink synchronously: data frames may already be next in the buffer.
           const sink = new PassThrough({ highWaterMark: 512 * 1024 });
@@ -178,7 +178,7 @@ export class Peer extends EventEmitter {
         this.send({ t: 'res', id: msg.id, ok: true, r: result ?? null });
       }
     } catch (e) {
-      this.send({ t: 'res', id: msg.id, ok: false, e: e?.message || String(e) });
+      this.send({ t: 'res', id: msg.id, ok: false, e: e?.message || String(e), code: typeof e?.code === 'string' ? e.code : undefined });
     }
   }
 

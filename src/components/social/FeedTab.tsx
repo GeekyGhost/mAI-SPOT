@@ -268,7 +268,7 @@ export const FriendRow: React.FC<{ f: Friend }> = ({ f }) => {
           { label: 'Visit their Spot', onClick: () => p2p.setVisit(f.key) },
           { label: 'Message', onClick: () => p2p.openChat(f.key) },
           f.nowPlaying ? { label: along ? 'Stop listening along' : 'Listen along', onClick: () => p2p.listenAlong(along ? null : f.key) } : null,
-          { label: `What they can see… (${f.access})`, onClick: () => p2p.setDialog({ type: 'access', key: f.key }) },
+          { label: 'Messages, calls & sharing…', onClick: () => p2p.setDialog({ type: 'access', key: f.key }) },
           { label: f.top ? 'Remove from Top Friends' : 'Add to Top Friends ★', onClick: () => act('update', { top: !f.top }) },
           {
             label: 'Set nickname…',
