@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3 — 2026-10-16
+
+- Friend removal flushes the encrypted unfriend notice before closing the connection. Previously an immediate socket destroy could discard the notice and leave the other Spot with a one-sided friendship. Chat history is retained for re-pairing.
+- Events from replaced or closed peer connections can no longer remove a newly re-added friend or overwrite current presence. Closing peers are excluded from availability and connection counts.
+- The network badge now shows the number of friends online; its tooltip explains the broader peer-link count. Friend-management request failures are displayed instead of becoming unhandled rejections.
+- Added isolated tests using real local DHT discovery and encrypted Noise/UDX connections for existing-friend reconnects, offline delivery, removal notifications and fresh one-time invites. The reported two-computer offline mismatch still needs retesting on the target network.
+
 ## 0.4.2 — 2026-10-16
 
 - Launcher and updater operation locks now publish complete records atomically and replace child-process metadata without truncating the active lock. Interrupted lock writes no longer leave an empty file that blocks future launches; damaged older locks show specific recovery instructions.

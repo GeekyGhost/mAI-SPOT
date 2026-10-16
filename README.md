@@ -235,6 +235,14 @@ Nothing on your Spot is visible to anyone until you say so, per friend:
 
 **Who can contact you:** open a friend's menu → **Messages, calls & sharing…**, or the shield button in their chat. Three independent checkboxes control **Direct messages**, **Voice calls** and **Video calls** from that friend. Existing friends start with all three allowed. The receiving Spot enforces these settings even if the sender uses an older app; a disallowed message is not delivered, and disabling a call type also ends an incoming call of that type. These are direct-contact controls; group conversations use group membership.
 
+### Removing a friend or resetting a pairing
+
+On the **Friends** page, open the **⋮** menu beside a friend and choose **Remove friend**. The confirmation explains that saved chat history is kept. Removal revokes that friend's access; it does not delete your Spot identity or media.
+
+To reset a pairing that shows connected peer links but an offline friend, open both Spots, remove each other on both computers if still listed, then create a **new** one-time invite on one computer. Use **Add a friend** on the other computer, paste the new link and accept the incoming request. Verify the contact permissions and try messages in both directions. Keep your existing `data` folder and `identity.json`.
+
+The badge shows **friends online**. Its tooltip also lists peer links, which may include requests and group members; a peer link alone does not establish that a particular friend is ready to chat. Restart and re-pairing are recovery steps, not a guarantee that discovery or local network problems are resolved.
+
 ### Doing things together
 
 - **Radio Dial** (Radio page): an FM dial of every friend who's on air, and an AM dial of every friend you can listen along with. Each friend has a fixed frequency; between stations there's real static. Turn the knob, scroll, use the arrow keys, or hit *Seek*.

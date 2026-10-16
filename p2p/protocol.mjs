@@ -29,6 +29,7 @@ export class Peer extends EventEmitter {
     this.sources = new Map(); // sid -> {readable, flowPaused, sockPaused}
     this.nextSid = 1;
     this.closed = false;
+    this.closing = false;
     this.handler = null; // async (method, params, peer) => result | {stream, meta}
     this.hello = null;
 
@@ -40,7 +41,7 @@ export class Peer extends EventEmitter {
 
   // ── sending ──
   writeFrame(type, payload) {
-    if (this.closed) return false;
+    if (this.closed || this.closing) return false;
     const head = Buffer.alloc(5);
     head.writeUInt32BE(payload.length + 1, 0);
     head.writeUInt8(type, 4);
@@ -56,7 +57,7 @@ export class Peer extends EventEmitter {
   }
 
   request(method, params, { timeout = 20000, stream = false } = {}) {
-    if (this.closed) return Promise.reject(new Error('Peer is offline'));
+    if (this.closed || this.closing) return Promise.reject(new Error('Peer is offline'));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -217,6 +218,7 @@ export class Peer extends EventEmitter {
 
   onClose() {
     if (this.closed) return;
+    clearTimeout(this.closeTimer);
     this.closed = true;
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
@@ -235,5 +237,15 @@ export class Peer extends EventEmitter {
       this.conn.destroy(reason ? new Error(reason) : undefined);
     } catch {}
     this.onClose();
+  }
+
+  closeGracefully() {
+    if (this.closed || this.closing) return;
+    this.closing = true;
+    // Noise/UDX queues writes. destroy() can discard the final unfriend notice;
+    // end() flushes it before closing. Bound shutdown if the other side stalls.
+    this.closeTimer = setTimeout(() => this.destroy(), 2000);
+    this.closeTimer.unref?.();
+    try { this.conn.end(); } catch { this.destroy(); }
   }
 }

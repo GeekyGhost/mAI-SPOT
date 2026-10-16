@@ -122,13 +122,16 @@ export class SpotNode extends EventEmitter {
     if (key !== this.key && this.swarm) this.swarm.joinPeer(Buffer.from(key, 'hex'));
   }
 
-  leaveIfUnwanted(key) {
+  leaveIfUnwanted(key, graceful = false) {
     if (this.wantedPeers().has(key)) return;
     try {
       this.swarm?.leavePeer(Buffer.from(key, 'hex'));
     } catch {}
     const p = this.peers.get(key);
-    if (p) p.destroy();
+    if (p) {
+      if (graceful) p.closeGracefully();
+      else p.destroy();
+    }
   }
 
   /** Push an update to the browser (Server-Sent Events). */
@@ -154,8 +157,8 @@ export class SpotNode extends EventEmitter {
     peer.on('warn', err => {
       console.warn(`[p2p:${key.slice(0, 8)}] protocol warning:`, err?.message || err);
     });
-    if (old && !old.closed) old.destroy();
     this.peers.set(key, peer);
+    if (old && !old.closed) old.destroy();
     const summary = this.summaryFor(key);
     this.presenceSig.set(key, this.presenceSignature(summary));
     peer.event('hello', { v: 2, profile: summary });
@@ -193,7 +196,7 @@ export class SpotNode extends EventEmitter {
 
   connected(key) {
     const p = this.peers.get(key);
-    return p && !p.closed && p.hello ? p : null;
+    return p && !p.closed && !p.closing && p.hello ? p : null;
   }
 
   myName() {
@@ -231,6 +234,7 @@ export class SpotNode extends EventEmitter {
 
   // ───────────────────────── events from peers ─────────────────────────
   onEvent(peer, e, p) {
+    if (this.peers.get(peer.key) !== peer || peer.closed || peer.closing) return;
     const key = peer.key;
     const friend = this.s.friends[key];
     switch (e) {
@@ -455,7 +459,7 @@ export class SpotNode extends EventEmitter {
     delete this.s.feed[key];
     save();
     this.syncTopFriends();
-    this.leaveIfUnwanted(key);
+    this.leaveIfUnwanted(key, notify);
   }
 
   // ───────────────────────── requests from peers ─────────────────────────
@@ -1625,7 +1629,7 @@ export class SpotNode extends EventEmitter {
         mood: p.moodBlurb || '',
         avatar: p.avatar || ''
       },
-      network: { ...this.network, connections: [...this.peers.values()].filter(x => x.hello).length },
+      network: { ...this.network, connections: [...this.peers.values()].filter(x => x.hello && !x.closed && !x.closing).length },
       friends: Object.values(this.s.friends).map(f => this.friendView(f)).sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name)),
       requests: {
         incoming: Object.values(this.s.requests.incoming).map(r => ({

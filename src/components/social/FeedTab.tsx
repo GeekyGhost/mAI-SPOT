@@ -24,8 +24,8 @@ export const NetworkBadge: React.FC = () => {
   if (!n) return null;
   if (n.status === 'online')
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400" title={n.firewalled ? 'Behind a router: connections use hole punching' : 'Directly reachable'}>
-        <Wifi className="w-3.5 h-3.5" /> On the network · {n.connections} connected
+      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400" title={`${n.connections} peer links, including requests and group peers. ${n.firewalled ? 'Behind a router: connections use hole punching.' : 'Directly reachable.'}`}>
+        <Wifi className="w-3.5 h-3.5" /> On the network · {state?.friends.filter(f => f.online).length || 0} friends online
       </span>
     );
   if (n.status === 'offline')
@@ -223,7 +223,7 @@ export const FriendsList: React.FC = () => {
 export const FriendRow: React.FC<{ f: Friend }> = ({ f }) => {
   const p2p = useP2P();
   const audio = useAudio();
-  const act = (action: string, extra: Record<string, unknown> = {}) => api('/api/p2p/friends', { method: 'POST', json: { action, key: f.key, ...extra } }).then(p2p.refresh);
+  const act = (action: string, extra: Record<string, unknown> = {}) => api('/api/p2p/friends', { method: 'POST', json: { action, key: f.key, ...extra } }).then(p2p.refresh).catch((e: Error) => p2p.toast({ title: 'Couldn’t update friend', body: e.message }));
   const along = p2p.alongWith === f.key;
   const tunedLive = audio.mode === 'live' && audio.liveUrl === `/api/p2p/peer/${f.key}/live`;
   return (
@@ -278,7 +278,7 @@ export const FriendRow: React.FC<{ f: Friend }> = ({ f }) => {
             }
           },
           { label: '—', onClick: () => {} },
-          { label: 'Remove friend', danger: true, onClick: () => confirm(`Remove ${f.name} as a friend?`) && act('remove') },
+          { label: 'Remove friend', danger: true, onClick: () => confirm(`Remove ${f.name} as a friend? Saved chat history is kept. You can reconnect with a new invite.`) && act('remove') },
           { label: 'Block', danger: true, onClick: () => confirm(`Block ${f.name}? This also removes them as a friend.`) && act('block') }
         ]}
       />
