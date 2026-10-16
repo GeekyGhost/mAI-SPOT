@@ -52,7 +52,7 @@ export const OmniPager: React.FC<{ raised?: boolean }> = ({ raised }) => {
       {pager.open && state && (
         <div className={`fixed ${bottom} right-4 z-[47] w-[380px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-7rem)] bg-[#080f12] border-2 border-[#1a323c] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fadeIn`}>
           {pager.view?.type === 'dm' ? (
-            <DMView peer={pager.view.key} onBack={() => setPager({ open: true, view: null })} />
+            <DMView key={pager.view.key} peer={pager.view.key} onBack={() => setPager({ open: true, view: null })} />
           ) : pager.view?.type === 'group' ? (
             <GroupView id={pager.view.id} onBack={() => setPager({ open: true, view: null })} />
           ) : (
@@ -162,11 +162,24 @@ const DMView: React.FC<{ peer: string; onBack: () => void }> = ({ peer, onBack }
   const [msgs, setMsgs] = useState<DirectMessage[]>([]);
   const [text, setText] = useState('');
   const [err, setErr] = useState('');
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const draftId = useRef<{ text: string; id: string } | null>(null);
+  const loadVersion = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const load = () => api(`/api/p2p/messages?peer=${peer}`).then(d => setMsgs(d.messages)).catch(() => {});
+  const load = async () => {
+    const version = ++loadVersion.current;
+    try {
+      const d = await api(`/api/p2p/messages?peer=${peer}`);
+      if (version === loadVersion.current) setMsgs(d.messages);
+    } catch (error) {
+      if (version === loadVersion.current) setErr(`Couldn’t load messages: ${(error as Error).message}`);
+    }
+  };
   useEffect(() => {
     load();
+    return () => { loadVersion.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [peer, p2p.tick]);
   // Mark read when opened and whenever a new incoming message arrives.
@@ -180,15 +193,23 @@ const DMView: React.FC<{ peer: string; onBack: () => void }> = ({ peer, onBack }
   if (!f) return <div className="p-4 text-sm text-zinc-500">Not a friend anymore.</div>;
 
   const send = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || sendingRef.current) return;
+    const submitted = text;
+    if (draftId.current?.text !== submitted) draftId.current = { text: submitted, id: crypto.randomUUID() };
+    sendingRef.current = true;
+    setSending(true);
     setErr('');
     try {
-      await api('/api/p2p/messages', { method: 'POST', json: { to: peer, text } });
-      setText('');
-      soundFX.playMessageSent();
+      await api('/api/p2p/messages', { method: 'POST', json: { to: peer, text: submitted, id: draftId.current.id } });
+      setText(current => current === submitted ? '' : current);
+      draftId.current = null;
+      try { soundFX.playMessageSent(); } catch {}
       load();
     } catch (e) {
       setErr((e as Error).message);
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
   };
 
@@ -241,7 +262,7 @@ const DMView: React.FC<{ peer: string; onBack: () => void }> = ({ peer, onBack }
         }}
       >
         <input value={text} onChange={e => setText(e.target.value)} placeholder={`Message ${f.name}`} className="flex-1 bg-black/40 border border-[#1f3a45] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-400" maxLength={4000} autoFocus />
-        <button className="p-2 rounded-lg bg-emerald-500 text-black disabled:opacity-40" disabled={!text.trim()} title="Send">
+        <button className="p-2 rounded-lg bg-emerald-500 text-black disabled:opacity-40" disabled={sending || !text.trim()} title={sending ? 'Sending…' : 'Send'}>
           <Send className="w-4 h-4" />
         </button>
       </form>
@@ -423,9 +444,18 @@ export const CallWindow: React.FC = () => {
   const remoteRef = useRef<HTMLVideoElement>(null);
   const localRef = useRef<HTMLVideoElement>(null);
   const [seconds, setSeconds] = useState(0);
+  const [playBlocked, setPlayBlocked] = useState(false);
 
   useEffect(() => {
-    if (remoteRef.current) remoteRef.current.srcObject = p2p.remoteStream;
+    const el = remoteRef.current;
+    setPlayBlocked(false);
+    if (!el) return;
+    el.srcObject = p2p.remoteStream;
+    let cancelled = false;
+    if (p2p.remoteStream?.getTracks().length) {
+      void el.play().catch(() => { if (!cancelled) setPlayBlocked(true); });
+    }
+    return () => { cancelled = true; };
   }, [p2p.remoteStream, call?.status]);
   useEffect(() => {
     if (localRef.current) localRef.current.srcObject = p2p.localStream;
@@ -463,6 +493,9 @@ export const CallWindow: React.FC = () => {
         {call.video && call.status === 'active' && <div className="absolute top-4 left-4 px-2 py-1 rounded bg-black/60 text-xs text-white font-mono">{call.name} · {label}</div>}
 
         <div className="absolute bottom-5 inset-x-0 flex justify-center gap-3">
+          {playBlocked && call.status !== 'ended' && (
+            <button onClick={() => { void remoteRef.current?.play().then(() => setPlayBlocked(false)).catch(() => {}); }} className="px-4 py-3 rounded-full bg-white text-black font-bold">Play call audio</button>
+          )}
           {call.status === 'ringing' ? (
             <>
               <button onClick={() => p2p.acceptCall(false)} className="px-5 py-3 rounded-full bg-emerald-500 text-black font-bold flex items-center gap-2">
@@ -494,7 +527,6 @@ export const CallWindow: React.FC = () => {
           ) : null}
         </div>
       </div>
-      <audio ref={el => { if (el && !call.video) el.srcObject = p2p.remoteStream; }} autoPlay />
     </div>,
     document.body
   );

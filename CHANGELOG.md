@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1 — 2026-10-16
+
+**Messaging and call reliability**
+- Calls release the camera, microphone and peer connection on failure, hang-up, timeout and page unmount. Granting permission after a call ends cannot restart it.
+- Call descriptions and connection candidates are sent in order. Early incoming candidates wait for the matching offer and remote description; negotiation errors are handled rather than left as rejected promises.
+- Connecting calls time out, temporary disconnections get a recovery window, and old call events cannot affect a newer call. Device and permission errors include recovery instructions.
+- Voice calls play through a single media element, with a manual playback button when the browser blocks autoplay.
+- Messages are queued immediately, repeated submissions use the same message ID, and delivery retries run every 15 seconds while a friend remains connected, as well as on reconnect.
+- Read receipts arriving before delivery responses remain marked read. Concurrent delivery attempts are coalesced.
+- Chat load errors are displayed, switching friends resets the chat view, and reconnecting browser event streams refresh saved messages and state.
+- Added isolated regression tests with `npm test`; they do not use personal identities or contact real friends.
+
 ## 0.4.0
 
 **A new home page**

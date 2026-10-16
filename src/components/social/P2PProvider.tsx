@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { P2PState, FeedPost } from '@/lib/p2pTypes';
 import { api } from '@/lib/client';
+import { CallManager, type CallSnapshot, type CallState } from '@/lib/calls';
+export type { CallState } from '@/lib/calls';
 import { soundFX } from '@/components/sound/SoundFX';
 import { useAudio } from '@/components/audio/AudioEngine';
 import { SocialDialogs, type SocialDialog } from './SocialDialogs';
@@ -13,18 +15,6 @@ import { SocialDialogs, type SocialDialog } from './SocialDialogs';
  */
 
 export type PagerView = { type: 'dm'; key: string } | { type: 'group'; id: string } | null;
-
-export interface CallState {
-  callId: string;
-  peer: string;
-  name: string;
-  direction: 'in' | 'out';
-  status: 'ringing' | 'calling' | 'connecting' | 'active' | 'ended';
-  video: boolean;
-  error?: string;
-  micOn: boolean;
-  camOn: boolean;
-}
 
 interface Toast {
   id: number;
@@ -75,10 +65,6 @@ export const useP2P = () => {
   if (!c) throw new Error('useP2P outside provider');
   return c;
 };
-
-// Public STUN server: only used by the two browsers to learn their own public address for a call.
-// No audio or video goes through it.
-const ICE_SERVERS: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
 
 export function P2PProvider({ children, onProfileChanged }: { children: React.ReactNode; onProfileChanged?: () => void }) {
   const [state, setState] = useState<P2PState | null>(null);
@@ -138,187 +124,32 @@ export function P2PProvider({ children, onProfileChanged }: { children: React.Re
 
   const openChat = useCallback((key: string) => setPager({ open: true, view: { type: 'dm', key } }), []);
 
-  // ───────── calls ─────────
-  const [call, setCall] = useState<CallState | null>(null);
-  const callRef = useRef<CallState | null>(null);
-  callRef.current = call;
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null);
-  const pendingIce = useRef<RTCIceCandidateInit[]>([]);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const localRef = useRef<MediaStream | null>(null);
-  const ringTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const timeoutTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  const signal = useCallback((to: string, callId: string, kind: string, data?: unknown) => {
-    return api('/api/p2p/call', { method: 'POST', json: { to, callId, kind, data } }).catch(e => {
-      setCall(c => (c && c.callId === callId ? { ...c, status: 'ended', error: (e as Error).message } : c));
-    });
-  }, []);
-
-  const cleanup = useCallback((error?: string) => {
-    clearInterval(ringTimer.current);
-    clearTimeout(timeoutTimer.current);
-    pcRef.current?.close();
-    pcRef.current = null;
-    localRef.current?.getTracks().forEach(t => t.stop());
-    localRef.current = null;
-    setLocalStream(null);
-    setRemoteStream(null);
-    pendingOffer.current = null;
-    pendingIce.current = [];
-    setCall(c => (c ? { ...c, status: 'ended', error } : c));
-    setTimeout(() => setCall(c => (c?.status === 'ended' ? null : c)), error ? 5000 : 1500);
-  }, []);
-
-  const makePC = useCallback(
-    (peer: string, callId: string) => {
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-      pc.onicecandidate = e => {
-        if (e.candidate) signal(peer, callId, 'ice', e.candidate.toJSON());
-      };
-      const remote = new MediaStream();
-      setRemoteStream(remote);
-      pc.ontrack = e => {
-        e.streams[0]?.getTracks().forEach(t => remote.addTrack(t));
-        if (!e.streams[0]) remote.addTrack(e.track);
-        setRemoteStream(new MediaStream(remote.getTracks()));
-      };
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') {
-          clearTimeout(timeoutTimer.current);
-          setCall(c => (c ? { ...c, status: 'active' } : c));
-        } else if (pc.connectionState === 'failed') {
-          signal(peer, callId, 'bye');
-          cleanup('Couldn’t connect the call. One of your networks blocks direct calls.');
-        }
-      };
-      pcRef.current = pc;
-      return pc;
-    },
-    [signal, cleanup]
-  );
-
-  const getMedia = async (video: boolean) => {
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true, video: video ? { width: 1280, height: 720 } : false });
-    localRef.current = s;
-    setLocalStream(s);
-    return s;
-  };
-
-  const startCall = useCallback(
-    async (key: string, video: boolean) => {
-      if (callRef.current && callRef.current.status !== 'ended') return;
-      const friend = state?.friends.find(f => f.key === key);
-      const callId = Math.random().toString(36).slice(2, 12);
-      setCall({ callId, peer: key, name: friend?.name || 'Friend', direction: 'out', status: 'calling', video, micOn: true, camOn: video });
+  // The manager owns synchronous session identity; React only displays its snapshots.
+  const [{ call, localStream, remoteStream }, setCallSnapshot] = useState<CallSnapshot>({ call: null, localStream: null, remoteStream: null });
+  const [calls] = useState(() => new CallManager({
+    change: setCallSnapshot,
+    ring: () => soundFX.playCallRing(),
+    signal: async (to, callId, kind, data) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const stream = await getMedia(video);
-        const pc = makePC(key, callId);
-        stream.getTracks().forEach(t => pc.addTrack(t, stream));
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await signal(key, callId, 'offer', { sdp: offer, video });
-        timeoutTimer.current = setTimeout(() => {
-          if (callRef.current?.status === 'calling') {
-            signal(key, callId, 'bye');
-            cleanup('No answer.');
-          }
-        }, 45000);
-      } catch (e) {
-        cleanup((e as Error).name === 'NotAllowedError' ? 'Camera/microphone permission was blocked.' : (e as Error).message);
-      }
-    },
-    [state, makePC, signal, cleanup]
-  );
-
-  const acceptCall = useCallback(
-    async (video: boolean) => {
-      const c = callRef.current;
-      if (!c || !pendingOffer.current) return;
-      clearInterval(ringTimer.current);
-      setCall({ ...c, status: 'connecting', video, camOn: video });
-      try {
-        const stream = await getMedia(video);
-        const pc = makePC(c.peer, c.callId);
-        stream.getTracks().forEach(t => pc.addTrack(t, stream));
-        await pc.setRemoteDescription(pendingOffer.current);
-        for (const ice of pendingIce.current) await pc.addIceCandidate(ice).catch(() => {});
-        pendingIce.current = [];
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await signal(c.peer, c.callId, 'answer', { sdp: answer });
-      } catch (e) {
-        signal(c.peer, c.callId, 'bye');
-        cleanup((e as Error).name === 'NotAllowedError' ? 'Camera/microphone permission was blocked.' : (e as Error).message);
-      }
-    },
-    [makePC, signal, cleanup]
-  );
-
-  const declineCall = useCallback(() => {
-    const c = callRef.current;
-    if (c) signal(c.peer, c.callId, 'reject');
-    cleanup();
-  }, [signal, cleanup]);
-
-  const hangUp = useCallback(() => {
-    const c = callRef.current;
-    if (c) signal(c.peer, c.callId, 'bye');
-    cleanup();
-  }, [signal, cleanup]);
-
-  const toggleMic = useCallback(() => {
-    const t = localRef.current?.getAudioTracks()[0];
-    if (t) {
-      t.enabled = !t.enabled;
-      setCall(c => (c ? { ...c, micOn: t.enabled } : c));
+        return await api('/api/p2p/call', { method: 'POST', json: { to, callId, kind, data }, signal: controller.signal });
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') throw new Error('The call service did not respond. Check that your Spot is running and try again.');
+        throw error;
+      } finally { clearTimeout(timer); }
     }
-  }, []);
-  const toggleCam = useCallback(() => {
-    const t = localRef.current?.getVideoTracks()[0];
-    if (t) {
-      t.enabled = !t.enabled;
-      setCall(c => (c ? { ...c, camOn: t.enabled } : c));
-    }
-  }, []);
-
-  const onCallSignal = useCallback(
-    async (ev: { from: string; name: string; callId: string; kind: string; data: any }) => {
-      const c = callRef.current;
-      if (ev.kind === 'offer') {
-        if (c && c.status !== 'ended') {
-          signal(ev.from, ev.callId, 'reject'); // busy
-          return;
-        }
-        pendingOffer.current = ev.data?.sdp;
-        pendingIce.current = [];
-        setCall({ callId: ev.callId, peer: ev.from, name: ev.name, direction: 'in', status: 'ringing', video: !!ev.data?.video, micOn: true, camOn: !!ev.data?.video });
-        soundFX.playCallRing();
-        ringTimer.current = setInterval(() => soundFX.playCallRing(), 2500);
-        timeoutTimer.current = setTimeout(() => {
-          if (callRef.current?.status === 'ringing') cleanup('Missed call.');
-        }, 45000);
-        return;
-      }
-      if (!c || c.callId !== ev.callId) return;
-      if (ev.kind === 'answer' && pcRef.current) {
-        setCall({ ...c, status: 'connecting' });
-        await pcRef.current.setRemoteDescription(ev.data?.sdp);
-        for (const ice of pendingIce.current) await pcRef.current.addIceCandidate(ice).catch(() => {});
-        pendingIce.current = [];
-      } else if (ev.kind === 'ice') {
-        if (pcRef.current?.remoteDescription) await pcRef.current.addIceCandidate(ev.data).catch(() => {});
-        else pendingIce.current.push(ev.data);
-      } else if (ev.kind === 'reject') {
-        cleanup(c.direction === 'out' ? 'They’re busy or declined.' : undefined);
-      } else if (ev.kind === 'bye') {
-        cleanup(c.status === 'ringing' ? 'Missed call.' : undefined);
-      }
-    },
-    [signal, cleanup]
-  );
+  }));
+  useEffect(() => () => calls.dispose(), [calls]);
+  const startCall = useCallback((key: string, video: boolean) => {
+    const friend = state?.friends.find(f => f.key === key);
+    void calls.start(key, friend?.nickname || friend?.name || 'Friend', video);
+  }, [calls, state]);
+  const acceptCall = useCallback((video: boolean) => { void calls.accept(video); }, [calls]);
+  const declineCall = useCallback(() => calls.decline(), [calls]);
+  const hangUp = useCallback(() => calls.hangUp(), [calls]);
+  const toggleMic = useCallback(() => calls.toggle('audio'), [calls]);
+  const toggleCam = useCallback(() => calls.toggle('video'), [calls]);
 
   // ───────── event stream ─────────
   useEffect(() => {
@@ -331,6 +162,7 @@ export function P2PProvider({ children, onProfileChanged }: { children: React.Re
       stateTimer = setTimeout(refresh, 150);
     };
     const es = new EventSource('/api/p2p/events');
+    es.onopen = () => { refresh(); refreshFeed(); setTick(t => t + 1); };
     es.onmessage = m => {
       let ev: any;
       try {
@@ -342,7 +174,7 @@ export function P2PProvider({ children, onProfileChanged }: { children: React.Re
       setLastEvent(ev);
       switch (ev.type) {
         case 'call':
-          onCallSignal(ev);
+          void calls.receive(ev);
           break;
         case 'feed':
           clearTimeout(feedTimer);
@@ -430,7 +262,7 @@ export function P2PProvider({ children, onProfileChanged }: { children: React.Re
       clearTimeout(feedTimer);
       clearTimeout(stateTimer);
     };
-  }, [refresh, refreshFeed, toast, onCallSignal, joinParty]);
+  }, [refresh, refreshFeed, toast, calls, joinParty]);
 
   // Chime when a friend comes online (not for everyone already online at page load).
   const prevOnline = useRef<Set<string> | null>(null);

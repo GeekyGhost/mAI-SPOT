@@ -4,7 +4,7 @@
 
 
 
-> **[📥 Download Standalone Release (.zip)](https://github.com/GeekyGhost/mAI-SPOT/releases/latest)** — Zero install required; runs on your PC with portable runtime included.
+> **[📥 Download Standalone Release (.zip)](https://github.com/GeekyGhost/mAI-SPOT/releases/latest)** — Unzip and run the launcher; it downloads a private runtime if needed and sets up the app on first launch.
 
 Your own personal broadcast station and social page, in the spirit of MySpace and the early-2000s web. It runs on your own PC and everything stays in this folder.
 
@@ -181,11 +181,14 @@ Nothing on your Spot is visible to anyone until you say so, per friend:
 - **Finding each other:** Spots use the public HyperDHT network (the same one Holepunch's Keet uses) only to look up a friend's current address by their key.
 - **Connections:** after that, Spots connect directly to each other, punching through home routers. Every connection is end-to-end encrypted (Noise) and both sides prove their keys. No server ever sees your messages, posts or media.
 - **Presence:** you see when friends are online, away, do-not-disturb, or on air with their radio, plus their current mood. Your status is set in the OmniPager.
-- **Direct messages:** delivery ticks show ⏱ waiting in your outbox (they're offline), ✓ delivered, and ✓✓ read. The outbox flushes automatically when they reconnect.
+- **Direct messages:** delivery ticks show ⏱ waiting in your outbox, ✓ delivered, and ✓✓ read. The outbox flushes automatically when they reconnect and retries queued messages every 15 seconds while connected. Repeated submissions of the same send request do not duplicate the message.
 - **Group chats:** any member can add friends. Members who were offline catch up from whoever's online when they return.
 - **Friend Feed:** post thoughts, poems (line breaks kept), pictures, or songs and videos from your library. Friends like and comment, and your node holds the official copy of your posts. Pictures are cached, so they stay visible while you're offline. Songs and videos stream from your PC, so they play only while you're online.
 - **Visiting a Spot:** open a friend from the Feed to see their profile, posts and pictures. You can stream their music and videos, or **tune into their live radio station** in sync with everyone else listening.
 - **Calls:** voice and video calls go straight between the two browsers (WebRTC). The signalling travels over your encrypted P2P link. A public STUN server (Google's) is only used to discover each side's public address; no audio or video passes through it.
+  - Open your own Spot at `http://localhost:8088` (or your configured port) and allow camera/microphone access. Plain HTTP at a LAN IP does not provide the browser access required for calls; visiting another computer's node is restricted to radio listening.
+  - An unanswered call ends after 45 seconds; connecting calls time out after 30 seconds. Temporary disconnections have 10 seconds to recover. Hang-up and failure release your camera and microphone, including when a permission prompt finishes late.
+  - If your browser blocks call audio, press **Play call audio**. A failed call shows a device, permission or connection error so you can retry.
 - **Blocking:** block anyone from their ⋮ menu or their request; they can't reach your Spot at all.
 
 ### Limits worth knowing
@@ -197,3 +200,7 @@ Nothing on your Spot is visible to anyone until you say so, per friend:
 ### A note on sharing content
 
 Only share things you have the right to share. The private-invite design keeps things between you and the people you invite. It does not change copyright rules.
+
+### Development checks
+
+Run `npm test` for isolated call and messaging regression tests, `npm run lint` for TypeScript checks, and `npm run build` for a production build. The tests use simulated browser media devices and in-memory peer transports; they do not replace a real two-computer microphone, camera and network test.

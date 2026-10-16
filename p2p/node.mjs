@@ -41,6 +41,7 @@ export class SpotNode extends EventEmitter {
     this.recentAlong = []; // track ids recently "now playing", so listeners finishing a song aren't cut off
     this.parties = new Map(); // watch parties: id -> party (hosted here, or joined as a guest)
     this.thumbCache = new Map(); // key -> { at, set } visible thumbnail names for that friend
+    this.dmDeliveries = new Map(); // coalesce delivery attempts for the same queued message
   }
 
   // ───────────────────────── lifecycle ─────────────────────────
@@ -87,10 +88,16 @@ export class SpotNode extends EventEmitter {
       this.checkPresence();
       this.partyHeartbeat();
     }, 3000);
+    this.outboxTimer = setInterval(() => {
+      for (const peer of this.peers.values()) {
+        if (peer.hello && !peer.closed && this.isFriend(peer.key)) void this.flushOutbox(peer);
+      }
+    }, 15000);
   }
 
   async stop() {
     clearInterval(this.presenceTimer);
+    clearInterval(this.outboxTimer);
     save(true);
     try {
       await this.swarm?.destroy();
@@ -345,7 +352,8 @@ export class SpotNode extends EventEmitter {
         if (friend) {
           const upTo = Number(p?.upTo) || 0;
           for (const m of this.s.messages[key] || []) {
-            if (m.from === this.key && m.ts <= upTo && m.status !== 'queued') m.status = 'read';
+            // A read receipt can arrive before the delivery RPC response.
+            if (m.from === this.key && m.ts <= upTo) m.status = 'read';
           }
           save();
           this.ui('dm_status', { peer: key });
@@ -892,28 +900,42 @@ export class SpotNode extends EventEmitter {
   }
 
   // ───────────────────────── direct messages ─────────────────────────
-  async sendDM(to, text) {
+  async sendDM(to, text, id) {
     if (!this.isFriend(to)) throw new Error('You can only message friends.');
     const t = clip(text, MAX_TEXT).trim();
     if (!t) throw new Error('Empty message');
-    const msg = { id: newId(), from: this.key, to, text: t, ts: Date.now(), status: 'queued' };
+    if (id !== undefined && (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{8,40}$/.test(id))) throw new Error('Invalid message ID');
     const list = (this.s.messages[to] = this.s.messages[to] || []);
+    const existing = id && list.find(m => m.id === id && m.from === this.key);
+    if (existing) {
+      if (existing.text !== t) throw new Error('This message ID was already used.');
+      return existing;
+    }
+    const msg = { id: id || newId(), from: this.key, to, text: t, ts: Date.now(), status: 'queued' };
     list.push(msg);
     save();
+    this.ui('dm_status', { peer: to });
     const peer = this.connected(to);
-    if (peer) await this.deliver(peer, msg);
+    // A slow/offline peer must not hold the browser's send request open.
+    if (peer) void this.deliver(peer, msg);
     return msg;
   }
 
-  async deliver(peer, msg) {
-    try {
-      await peer.request('dm', { id: msg.id, text: msg.text, ts: msg.ts });
-      msg.status = 'delivered';
-      save();
-      this.ui('dm_status', { peer: peer.key });
-    } catch {
-      /* stays queued; retried on next connect */
-    }
+  deliver(peer, msg) {
+    const key = `${peer.key}:${msg.id}`;
+    if (this.dmDeliveries.has(key)) return this.dmDeliveries.get(key);
+    const attempt = Promise.resolve().then(async () => {
+      try {
+        await peer.request('dm', { id: msg.id, text: msg.text, ts: msg.ts });
+        if (msg.status === 'queued') msg.status = 'delivered';
+        save();
+        this.ui('dm_status', { peer: peer.key });
+      } catch {
+        /* stays queued; retried periodically and on reconnect */
+      }
+    }).finally(() => this.dmDeliveries.delete(key));
+    this.dmDeliveries.set(key, attempt);
+    return attempt;
   }
 
   async flushOutbox(peer) {
@@ -1213,6 +1235,7 @@ export class SpotNode extends EventEmitter {
   // ───────────────────────── calls (WebRTC signalling relay) ─────────────────────────
   callSignal(to, payload) {
     if (!this.isFriend(to)) throw new Error('Not a friend');
+    if (typeof payload.callId !== 'string' || !payload.callId || payload.callId.length > 64 || !['offer', 'answer', 'ice', 'bye', 'reject'].includes(payload.kind)) throw new Error('Invalid call signal');
     const peer = this.connected(to);
     if (!peer) throw new Error('They’re offline.');
     peer.event('call', { callId: clip(payload.callId, 64), kind: clip(payload.kind, 16), data: payload.data ?? null });

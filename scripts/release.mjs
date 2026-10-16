@@ -17,7 +17,7 @@ const top = `mAI-Spot-${pkg.version}`;
 const INCLUDE = [
   'src', 'p2p', 'scripts', 'public', 'content/apps',
   'server.mjs', 'package.json', 'package-lock.json', 'next.config.ts', 'tailwind.config.ts', 'tsconfig.json',
-  'postcss.config.mjs', 'next-env.d.ts', 'Launch.bat', 'launch.sh', 'README.md', 'LICENSE', 'CHANGELOG.md'
+  'postcss.config.mjs', 'next-env.d.ts', 'Launch.bat', 'launch.sh', 'README.md', 'LICENSE', 'CHANGELOG.md', 'FEATURE_PROPOSALS.md'
 ];
 // Starter artwork used by the default channel, sample games and the welcome setup.
 const STARTER_THUMBS = /^(thumb_|avatar_)[a-z_]+\.svg$/;

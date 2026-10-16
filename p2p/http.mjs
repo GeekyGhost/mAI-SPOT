@@ -155,7 +155,7 @@ export function createP2PHandler(node) {
           node.markRead(b.peer);
           return ok(res);
         }
-        return ok(res, { message: await node.sendDM(b.to, b.text) });
+        return ok(res, { message: await node.sendDM(b.to, b.text, b.id) });
       }
 
       if (parts[0] === 'groups') {
